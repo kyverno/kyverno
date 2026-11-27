@@ -48,10 +48,50 @@ func gvk(group, version, kind string) schema.GroupVersionKind {
 	return schema.GroupVersionKind{Group: group, Version: version, Kind: kind}
 }
 
+// To add a name/exclude case to TestMatcher, use:
+//
+//	matchResources(include, exclude)  // rules to include and exclude, nil for none
+//	deployRule("name")                // apps/v1 deployments rule limited to names; no names = any name
+//	deployAttrs(op, name, obj)        // the request; obj is nil unless testing generateName
+var allOps = []v1.OperationType{v1.OperationAll}
+
+func namedRule(ops []v1.OperationType, group, version, resource string, names ...string) v1.NamedRuleWithOperations {
+	return v1.NamedRuleWithOperations{
+		ResourceNames: names,
+		RuleWithOperations: v1.RuleWithOperations{
+			Operations: ops,
+			Rule:       v1.Rule{APIGroups: []string{group}, APIVersions: []string{version}, Resources: []string{resource}},
+		},
+	}
+}
+
+// deployRule matches apps/v1 deployments for all operations, optionally restricted to names.
+func deployRule(names ...string) v1.NamedRuleWithOperations {
+	return namedRule(allOps, "apps", "v1", "deployments", names...)
+}
+
+func matchResources(include, exclude []v1.NamedRuleWithOperations) *v1.MatchResources {
+	return &v1.MatchResources{
+		NamespaceSelector:    &metav1.LabelSelector{},
+		ObjectSelector:       &metav1.LabelSelector{},
+		ResourceRules:        include,
+		ExcludeResourceRules: exclude,
+	}
+}
+
+func deployAttrs(op admission.Operation, name string, obj runtime.Object) admission.Attributes {
+	return admission.NewAttributesRecord(obj, nil, gvk("apps", "v1", "Deployment"), "ns", name, gvr("apps", "v1", "deployments"), "", op, &metav1.CreateOptions{}, false, nil)
+}
+
+func generateNameObject(generateName string) runtime.Object {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"metadata": map[string]interface{}{"generateName": generateName},
+	}}
+}
+
 func TestMatcher(t *testing.T) {
 	a := NewMatcher()
 
-	// TODO write test cases for name matching and exclude matching
 	testcases := []struct {
 		name string
 
@@ -488,6 +528,231 @@ func TestMatcher(t *testing.T) {
 			attrs:         admission.NewAttributesRecord(&example.Pod{}, nil, gvk("example.apiserver.k8s.io", "v1", "Pod"), "ns", "name", gvr("example.apiserver.k8s.io", "v1", "pods"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
 			expectMatches: false,
 			expectErr:     "bad value",
+		},
+		{
+			name:          "name match, operation matches",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Create}, "apps", "v1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "name match, operation does not match",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Create}, "apps", "v1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Update, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "name match, resource version does not match",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1beta1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "multiple names in one rule, last name matches",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("a", "b", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "multiple names in one rule, no name matches",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("a", "b", "c")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "multiple rules, only the second rule matches the name",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("a"), deployRule("name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "multiple rules, name only listed in a rule for another version",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1beta1", "deployments", "name"), deployRule("other")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, name is excluded",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, name is not excluded",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("other")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "exclude by multiple names, second name is excluded",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("a", "name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by multiple names, no name is excluded",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("a", "b")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "exclude with empty names excludes every name",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name")}, []v1.NamedRuleWithOperations{deployRule()}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, operation does not match the exclude rule",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Delete}, "apps", "v1", "deployments", "name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "include and exclude the same name, exclude wins",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name")}, []v1.NamedRuleWithOperations{deployRule("name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "include and exclude different names, included name matches",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name")}, []v1.NamedRuleWithOperations{deployRule("other")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "name is excluded but not included",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("other")}, []v1.NamedRuleWithOperations{deployRule("name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "empty name, generateName has the rule name as prefix",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name-")}, nil),
+			attrs:         deployAttrs(admission.Create, "", generateNameObject("name-")),
+			expectMatches: true,
+		},
+		{
+			name:          "empty name, generateName does not have the rule name as prefix",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name-")}, nil),
+			attrs:         deployAttrs(admission.Create, "", generateNameObject("other-")),
+			expectMatches: false,
+		},
+		{
+			name:          "empty name and empty generateName",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name-")}, nil),
+			attrs:         deployAttrs(admission.Create, "", generateNameObject("")),
+			expectMatches: false,
+		},
+		{
+			name:          "non-empty name ignores generateName",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("name-")}, nil),
+			attrs:         deployAttrs(admission.Create, "other", generateNameObject("name-")),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, empty name excluded through generateName prefix",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("tmp-")}),
+			attrs:         deployAttrs(admission.Create, "", generateNameObject("tmp-")),
+			expectMatches: false,
+		},
+		{
+			name:          "empty names in include rule matches any name",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, nil),
+			attrs:         deployAttrs(admission.Create, "any-name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "empty names in include rule matches empty name",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, nil),
+			attrs:         deployAttrs(admission.Create, "", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "name match, api group does not match",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "extensions", "v1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "name match, resource does not match",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1", "statefulsets", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "name match, wildcard group, version and resource",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "*", "*", "*", "name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "name miss, wildcard group, version and resource",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "*", "*", "*", "other")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "name match, rule lists several operations",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Create, v1.Update}, "apps", "v1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Update, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "name match, operation not among several listed operations",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Create, v1.Update}, "apps", "v1", "deployments", "name")}, nil),
+			attrs:         deployAttrs(admission.Delete, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "name matching is case sensitive",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule("Name")}, nil),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:     "name match on subresource request",
+			criteria: matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1", "deployments/scale", "name")}, nil),
+			attrs: admission.NewAttributesRecord(nil, nil, gvk("autoscaling", "v1", "Scale"), "ns", "name", gvr("apps", "v1", "deployments"), "scale",
+				admission.Update, &metav1.UpdateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name:     "name miss on subresource request",
+			criteria: matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1", "deployments/scale", "other")}, nil),
+			attrs: admission.NewAttributesRecord(nil, nil, gvk("autoscaling", "v1", "Scale"), "ns", "name", gvr("apps", "v1", "deployments"), "scale",
+				admission.Update, &metav1.UpdateOptions{}, false, nil),
+			expectMatches: false,
+		},
+		{
+			name:     "exclude by name on subresource request",
+			criteria: matchResources([]v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1", "deployments/scale")}, []v1.NamedRuleWithOperations{namedRule(allOps, "apps", "v1", "deployments/scale", "name")}),
+			attrs: admission.NewAttributesRecord(nil, nil, gvk("autoscaling", "v1", "Scale"), "ns", "name", gvr("apps", "v1", "deployments"), "scale",
+				admission.Update, &metav1.UpdateOptions{}, false, nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, operation matches the exclude rule",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{namedRule([]v1.OperationType{v1.Delete}, "apps", "v1", "deployments", "name")}),
+			attrs:         deployAttrs(admission.Delete, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude by name, api group does not match the exclude rule",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{namedRule(allOps, "extensions", "v1", "deployments", "name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: true,
+		},
+		{
+			name:          "multiple exclude rules, only the second excludes the name",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("a"), deployRule("name")}),
+			attrs:         deployAttrs(admission.Create, "name", nil),
+			expectMatches: false,
+		},
+		{
+			name:          "exclude only applies to the named resource",
+			criteria:      matchResources([]v1.NamedRuleWithOperations{deployRule()}, []v1.NamedRuleWithOperations{deployRule("name")}),
+			attrs:         deployAttrs(admission.Create, "other", nil),
+			expectMatches: true,
 		},
 	}
 
