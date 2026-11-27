@@ -19,8 +19,7 @@ type Policy struct {
 	// ExtractionMode is true for an autogen'd target whose pod template is
 	// discovered by structural extraction at evaluation time (custom
 	// workload CRDs like JobSet) rather than by matching the literal
-	// admitted object directly. Digest-pinning mutation is not supported
-	// for these targets yet - see HandleMutating.
+	// admitted object directly.
 	ExtractionMode bool
 }
 

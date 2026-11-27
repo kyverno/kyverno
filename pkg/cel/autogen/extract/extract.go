@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 )
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
-// workload resource, together with the path it was found at (for
-// diagnostics only).
+// workload resource, together with the path it was found at and its RFC 6901
+// JSON pointer.
 type Extracted struct {
-	Template map[string]any
-	Path     string
+	Template    map[string]any
+	Path        string
+	JSONPointer string
 }
 
 // ExtractPodTemplates walks obj's spec looking for every subtree that is
@@ -40,25 +42,75 @@ func ExtractPodTemplates(obj map[string]any) []Extracted {
 		return nil
 	}
 	var out []Extracted
-	walk(spec, "spec", &out)
+	walk(spec, "spec", "/spec", &out)
 	return out
 }
 
-func walk(node any, path string, out *[]Extracted) {
+func walk(node any, path string, pointer string, out *[]Extracted) {
 	switch v := node.(type) {
 	case map[string]any:
 		if isPodTemplateSpec(v) {
-			*out = append(*out, Extracted{Template: v, Path: path})
+			*out = append(*out, Extracted{Template: v, Path: path, JSONPointer: pointer})
 			return
 		}
 		for _, key := range slices.Sorted(maps.Keys(v)) {
-			walk(v[key], joinPath(path, key), out)
+			escapedKey := escapeJSONPointer(key)
+			walk(v[key], joinPath(path, key), pointer+"/"+escapedKey, out)
 		}
 	case []any:
 		for i, val := range v {
-			walk(val, fmt.Sprintf("%s[%d]", path, i), out)
+			walk(val, fmt.Sprintf("%s[%d]", path, i), fmt.Sprintf("%s/%d", pointer, i), out)
 		}
 	}
+}
+
+func escapeJSONPointer(token string) string {
+	token = strings.ReplaceAll(token, "~", "~0")
+	token = strings.ReplaceAll(token, "/", "~1")
+	return token
+}
+
+// PathToJSONPointer converts a dot-and-bracket path (e.g. "spec.replicatedJobs[0].template")
+// to an RFC 6901 JSON Pointer (e.g. "/spec/replicatedJobs/0/template").
+func PathToJSONPointer(path string) string {
+	if path == "" {
+		return ""
+	}
+	var tokens []string
+	var cur strings.Builder
+	for i := 0; i < len(path); i++ {
+		switch path[i] {
+		case '.':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		case '[':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		case ']':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		default:
+			cur.WriteByte(path[i])
+		}
+	}
+	if cur.Len() > 0 {
+		tokens = append(tokens, cur.String())
+	}
+	if len(tokens) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, t := range tokens {
+		b.WriteByte('/')
+		b.WriteString(escapeJSONPointer(t))
+	}
+	return b.String()
 }
 
 func joinPath(path, key string) string {
