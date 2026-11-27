@@ -1618,6 +1618,134 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
 }
 
+func Test_Apply_OperationConnect(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/operation-connect/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+		Variables:     []string{"request.operation=CONNECT"},
+		PolicyReport:  true,
+	}
+	rc, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	require.NoError(t, err)
+	require.NotNil(t, rc)
+	require.NotEmpty(t, responses)
+
+	var denyConnectMatched, denyConnectFailed bool
+	for _, response := range responses {
+		assert.Equal(t, "test-pod", response.Resource.GetName())
+		assert.Equal(t, "test-ns", response.Resource.GetNamespace())
+		assert.Equal(t, "Pod", response.Resource.GetKind())
+		assert.NotEmpty(t, response.Resource.Object["spec"], "CONNECT response must preserve input resource fields including spec")
+		if response.Policy().GetName() == "deny-connect" {
+			denyConnectMatched = true
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					denyConnectFailed = true
+				}
+			}
+		}
+		if response.Policy().GetName() == "require-env-label" {
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					t.Errorf("require-env-label (CREATE-scoped) must not fail on CONNECT operation")
+				}
+			}
+		}
+	}
+	assert.True(t, denyConnectMatched, "expected deny-connect to match on CONNECT operation")
+	assert.True(t, denyConnectFailed, "expected deny-connect rule to fail")
+}
+
+func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
+	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/mutate-namespace/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/mutate-namespace/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutating-label/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for JSON payload", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+			Variables:   []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON payloads")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode policy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects CONNECT for DeletingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode ImageValidatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
+}
+
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)

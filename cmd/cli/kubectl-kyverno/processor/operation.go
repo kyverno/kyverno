@@ -12,18 +12,16 @@ import (
 // string is valid and means "use the default operation".
 func NormalizeOperation(operation string) (string, error) {
 	switch operation {
-	case "", "CREATE", "UPDATE", "DELETE":
+	case "", "CREATE", "UPDATE", "DELETE", "CONNECT":
 		return operation, nil
 	default:
-		return "", fmt.Errorf("invalid operation %q, must be one of CREATE, UPDATE, DELETE", operation)
+		return "", fmt.Errorf("invalid operation %q, must be one of CREATE, UPDATE, DELETE, CONNECT", operation)
 	}
 }
 
 // NormalizeValuesOperation validates a `request.operation` global value from a
-// values file. In addition to the operations supported by admission request
-// simulation, CONNECT is accepted for backward compatibility with classic
-// policies that evaluate `request.operation` in preconditions; it is not
-// simulated for CEL policy types, which fall back to the CREATE request shape.
+// values file. Supported admission operations include CREATE, UPDATE, DELETE,
+// and CONNECT.
 func NormalizeValuesOperation(operation string) (string, error) {
 	switch operation {
 	case "", "CREATE", "UPDATE", "DELETE", "CONNECT":
@@ -38,6 +36,7 @@ func NormalizeValuesOperation(operation string) (string, error) {
 //   - CREATE (default): object is the resource, oldObject is null
 //   - UPDATE: object and oldObject are both the resource
 //   - DELETE: object is null, oldObject is the resource
+//   - CONNECT: object and oldObject are both null
 func AdmissionRequestShape(operation string, resource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
 	switch operation {
 	case "UPDATE":
@@ -46,6 +45,8 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 		// deep copy so downstream mutations of the old state cannot leak into
 		// the shared resource object
 		return admissionv1.Delete, nil, resource.DeepCopy()
+	case "CONNECT":
+		return admissionv1.Connect, nil, nil
 	default:
 		return admissionv1.Create, resource, nil
 	}
@@ -53,8 +54,7 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 
 // resolveOperation returns the effective operation for the processor: the
 // explicitly configured operation takes precedence, then the `request.operation`
-// global value from the values file, then the default (CREATE). CONNECT from the
-// values file is not simulated and maps to the default request shape.
+// global value from the values file, then the default (CREATE).
 func (p *PolicyProcessor) resolveOperation() string {
 	if p.Operation != "" {
 		return p.Operation

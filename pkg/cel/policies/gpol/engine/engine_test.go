@@ -573,4 +573,77 @@ func TestHandle(t *testing.T) {
 			assert.Nil(t, resp.Policies[0].Result)
 		})
 	})
+
+	t.Run("should evaluate CONNECT request with null request.object and request.oldObject and report correct trigger identity", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "generate-on-connect",
+			},
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationType(admissionv1.Connect)},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods/exec"},
+								},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "connect-null-objects",
+						Expression: "request.operation == 'CONNECT' && request.object == null && request.oldObject == null",
+					},
+				},
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "operation",
+						ValueExpression: "request.operation",
+					},
+				},
+			},
+		}
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Empty(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+
+		connectReq := engine.Request(
+			ctx1,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			"exec",
+			"test-pod",
+			"test-ns",
+			admissionv1.Connect,
+			v1.UserInfo{Username: "admin"},
+			nil,
+			nil,
+			false,
+			nil,
+		)
+
+		resp, err := eng.Handle(context.TODO(), connectReq, pol, false)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.Trigger)
+		assert.Equal(t, "test-pod", resp.Trigger.GetName())
+		assert.Equal(t, "test-ns", resp.Trigger.GetNamespace())
+		assert.Equal(t, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, resp.Trigger.GroupVersionKind())
+		assert.Len(t, resp.Policies, 1)
+		result := resp.Policies[0].Result
+		if assert.NotNil(t, result) {
+			assert.Equal(t, engineapi.RuleStatusPass, result.Status())
+			assert.Equal(t, "CONNECT", result.Properties()["operation"])
+		}
+	})
 }

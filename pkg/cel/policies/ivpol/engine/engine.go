@@ -112,9 +112,17 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 		dryRun = *request.Request.DryRun
 	}
 	// create admission attributes
+	var obj runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	var oldObj runtime.Object
+	if oldObject.Object != nil {
+		oldObj = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		oldObj,
 		schema.GroupVersionKind(request.Request.Kind),
 		request.Request.Namespace,
 		request.Request.Name,
@@ -200,9 +208,17 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 		dryRun = *request.Request.DryRun
 	}
 	// create admission attributes
+	var obj runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	var oldObj runtime.Object
+	if oldObject.Object != nil {
+		oldObj = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		oldObj,
 		schema.GroupVersionKind(request.Request.Kind),
 		request.Request.Namespace,
 		request.Request.Name,

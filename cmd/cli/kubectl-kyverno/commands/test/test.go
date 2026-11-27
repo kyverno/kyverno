@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -76,11 +77,26 @@ type TestResponse struct {
 	DeletingPolicies   map[string]struct{}
 }
 
-func deletingPolicyKey(namespace, name string) string {
+func policyKey(namespace, name string) string {
 	if namespace == "" {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+func deletingPolicyKey(namespace, name string) string {
+	return policyKey(namespace, name)
+}
+
+func normalizeTestPolicy(policy string) string {
+	if ns, name, ok := strings.Cut(policy, "/"); ok {
+		return policyKey(ns, name)
+	}
+	return policy
+}
+
+func matchesPolicy(set sets.Set[string], policy string) bool {
+	return set.Has(normalizeTestPolicy(policy))
 }
 
 var (
@@ -455,17 +471,88 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		return nil, err
 	}
 	explicitOperations := sets.New[string]()
+	mutatingPolicyNames := sets.New[string]()
+	for _, p := range results.MutatingPolicies {
+		mutatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+	}
+	deletingPolicyNames := sets.New[string]()
+	for _, p := range results.DeletingPolicies {
+		deletingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+	}
+	imageValidatingPolicyNames := sets.New[string]()
+	for _, p := range results.ImageValidatingPolicies {
+		imageValidatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+	}
+	jsonPolicyNames := sets.New[string]()
+	for _, p := range results.ValidatingPolicies {
+		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+		}
+	}
+	for _, p := range results.MutatingPolicies {
+		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+		}
+	}
+	for _, p := range results.ImageValidatingPolicies {
+		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+		}
+	}
+	hasJSONIvpol := slices.ContainsFunc(results.ImageValidatingPolicies, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	jsonPayloadFiles := sets.New[string]()
+	for _, jp := range testCase.Test.JSONPayloads {
+		jsonPayloadFiles.Insert(jp)
+		jsonPayloadFiles.Insert(filepath.Base(jp))
+	}
 	for _, res := range testCase.Test.Results {
 		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
 			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
 		}
+		effectiveOp := res.Operation
+		if effectiveOp == "" {
+			effectiveOp = vars.GlobalOperation()
+		}
+		if effectiveOp == "CONNECT" {
+			if res.IsDeletingPolicy || matchesPolicy(deletingPolicyNames, res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for deleting policies", res.Policy)
+			}
+			if res.IsImageValidatingPolicy || matchesPolicy(imageValidatingPolicyNames, res.Policy) {
+				if matchesPolicy(jsonPolicyNames, res.Policy) || (res.IsImageValidatingPolicy && hasJSONIvpol) {
+					return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
+				}
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for image validating policies", res.Policy)
+			}
+			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || matchesPolicy(mutatingPolicyNames, res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
+			}
+			if isJSONPayloadResult(res, jsonPayloadFiles, len(uniques)) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON payloads", res.Policy)
+			}
+			if matchesPolicy(jsonPolicyNames, res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
+			}
+		}
 		if res.Operation == "" {
 			continue
 		}
-		if res.IsDeletingPolicy {
+		if res.IsDeletingPolicy || matchesPolicy(deletingPolicyNames, res.Policy) {
 			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
 		}
 		explicitOperations.Insert(res.Operation)
+	}
+	if vars != nil && vars.GlobalOperation() == "CONNECT" {
+		if len(results.DeletingPolicies) > 0 {
+			return nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+		}
+		if hasJSONIvpol {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+		if len(results.ImageValidatingPolicies) > 0 {
+			return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
+		}
 	}
 	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
 
@@ -608,6 +695,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// variables, context, …) from the enclosing runTest scope so each call
 	// site only needs to supply the resource and operation.
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
+		effectiveOp := operation
+		if effectiveOp == "" && vars != nil {
+			effectiveOp = vars.GlobalOperation()
+		}
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
 			NamespaceResolver:                 nsResolver,
@@ -655,6 +746,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
+			if effectiveOp == "CONNECT" {
+				return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
+			}
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
 				nil,
@@ -671,7 +765,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
-				operation,
+				effectiveOp,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -679,8 +773,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ers = append(ers, ivpols...)
 		}
 		// Deleting policies are cluster-driven rather than admission-driven,
-		// so they are evaluated only in the default run.
+		// so they are evaluated only in the default run when operation is not CONNECT.
 		if defaultRun && len(results.DeletingPolicies) != 0 {
+			if effectiveOp == "CONNECT" {
+				return nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+			}
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
@@ -705,9 +802,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		return ers, nil
 	}
 	// Evaluate resource-oriented policies against each unique Kubernetes resource.
-	// In the default pass, the standard PolicyProcessor resolves the operation
-	// from the values file (or uses CREATE), but ImageValidatingPolicies use
-	// CREATE and DeletingPolicies have no admission operation. A separate run
+	// In the default pass, the standard PolicyProcessor and ImageValidatingPolicies
+	// resolve the operation from the values file (or use CREATE), while DeletingPolicies
+	// have no admission operation. A separate run is executed for each distinct
 	// is executed for each distinct operation explicitly declared on test
 	// results, populating TriggerByOperation so that the result-matching phase
 	// can look up responses for each operation-scoped test result.
@@ -943,6 +1040,15 @@ func applyImageValidatingPolicies(
 	gceMap map[string]interface{},
 	operation string,
 ) ([]engineapi.EngineResponse, error) {
+	hasJSONPolicy := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	if operation == "CONNECT" {
+		if hasJSONPolicy {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+		return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
+	}
 	var lister corev1listers.SecretLister
 	if dclient != nil {
 		// this informer technically lives for the duration of the cli command..
@@ -1300,4 +1406,22 @@ func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 		"body":       body,
 		"statusCode": statusCode,
 	}
+}
+
+func isJSONPayloadResult(res v1alpha1.TestResult, jsonPayloadFiles sets.Set[string], k8sResourceCount int) bool {
+	if len(jsonPayloadFiles) == 0 {
+		return false
+	}
+	if k8sResourceCount == 0 {
+		return true
+	}
+	if res.Kind == "" {
+		return true
+	}
+	for _, r := range res.Resources {
+		if jsonPayloadFiles.Has(r) || jsonPayloadFiles.Has(filepath.Base(r)) {
+			return true
+		}
+	}
+	return false
 }

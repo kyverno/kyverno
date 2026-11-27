@@ -80,7 +80,7 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// Operation is the admission operation to simulate (CREATE, UPDATE, DELETE, or CONNECT).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
 	Operation          string
@@ -128,6 +128,9 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
+	if p.JsonPayload.Object != nil && p.resolveOperation() == "CONNECT" {
+		return nil, fmt.Errorf("CONNECT operation is not supported for JSON payloads")
+	}
 	resource := p.Resource
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
@@ -170,6 +173,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {
+		if p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		}
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
@@ -207,6 +213,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
+	if len(p.MutatingPolicies) != 0 && p.resolveOperation() == "CONNECT" {
+		return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	}
 	mutatingPolicies := p.MutatingPolicies
 	if resource.Object == nil {
 		mutatingPolicies = nil
@@ -336,13 +345,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 					continue
 				}
-				patched := *reps.Resource
+				resourceVal := resource
+				if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
+					resourceVal = *reps.Resource
+				}
+				patched := resourceVal
 				if reps.PatchedResource != nil {
 					patched = *reps.PatchedResource
 				}
 
 				response := engineapi.EngineResponse{
-					Resource:        *reps.Resource,
+					Resource:        resourceVal,
 					PatchedResource: patched,
 					PolicyResponse: engineapi.PolicyResponse{
 						Rules: r.Rules,
@@ -452,6 +465,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
+		if p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		}
 		// map gvk to gvr
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
@@ -495,6 +511,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			} else {
 				k8sPolicies = append(k8sPolicies, pol)
 			}
+		}
+		if len(jsonPolicies) > 0 && p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
 		}
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
@@ -578,8 +597,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 						continue
 					}
+					resourceVal := resource
+					if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
+						resourceVal = *reps.Resource
+					}
 					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
+						Resource: resourceVal,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: r.Rules,
 						},
@@ -616,8 +639,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if len(r.Rules) == 0 {
 						continue
 					}
+					resourceVal := resource
+					if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
+						resourceVal = *reps.Resource
+					}
 					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
+						Resource: resourceVal,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: r.Rules,
 						},
@@ -763,9 +790,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if p.Explain && res.Trace != nil {
 						p.printTrace(res.Trace)
 					}
+					trigger := resource
+					if p.resolveOperation() != "CONNECT" && engineResponse.Trigger != nil && engineResponse.Trigger.Object != nil {
+						trigger = *engineResponse.Trigger
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
-							Resource: *engineResponse.Trigger,
+							Resource: trigger,
 						}
 						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 						p.Rc.addGenerateResponse(generateResponse)
@@ -773,7 +804,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{
-						Resource: *engineResponse.Trigger,
+						Resource: trigger,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: []engineapi.RuleResponse{*res.Result},
 						},

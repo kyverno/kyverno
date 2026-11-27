@@ -60,6 +60,17 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	if response.Trigger.Object == nil {
 		response.Trigger = &oldObject
 	}
+	if response.Trigger.Object == nil {
+		res := &unstructured.Unstructured{}
+		res.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   request.Request.Kind.Group,
+			Version: request.Request.Kind.Version,
+			Kind:    request.Request.Kind.Kind,
+		})
+		res.SetName(request.Request.Name)
+		res.SetNamespace(request.Request.Namespace)
+		response.Trigger = res
+	}
 	// default dry run
 	dryRun := false
 	if request.Request.DryRun != nil {
@@ -70,9 +81,17 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		ns = response.Trigger.GetNamespace()
 	}
 	// create admission attributes
+	var obj runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	var oldObj runtime.Object
+	if oldObject.Object != nil {
+		oldObj = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		oldObj,
 		schema.GroupVersionKind(request.Request.Kind),
 		ns,
 		request.Request.Name,

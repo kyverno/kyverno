@@ -28,6 +28,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestCommandWithInvalidArg(t *testing.T) {
@@ -1344,6 +1345,90 @@ func Test_OperationDelete(t *testing.T) {
 	})
 }
 
+func Test_OperationConnect(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-connect")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	resourceKey := "v1,Pod,test-ns,test-pod"
+
+	t.Run("CONNECT run filters policies by operation", func(t *testing.T) {
+		require.Contains(t, testResponse.TriggerByOperation, "CONNECT")
+		responses := testResponse.TriggerByOperation["CONNECT"][resourceKey]
+		require.NotEmpty(t, responses)
+		tests := []struct {
+			name     string
+			policy   string
+			wantFail bool
+		}{
+			{"CONNECT-scoped policy fails", "deny-connect", true},
+			{"CREATE-scoped policy does not match", "require-env-label", false},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				var matched, failed bool
+				for _, response := range responses {
+					assert.Equal(t, "test-pod", response.Resource.GetName())
+					assert.Equal(t, "test-ns", response.Resource.GetNamespace())
+					assert.Equal(t, "Pod", response.Resource.GetKind())
+					assert.NotEmpty(t, response.Resource.Object["spec"], "CONNECT response must preserve input resource fields including spec")
+					if response.Policy().GetName() != tc.policy {
+						continue
+					}
+					matched = true
+					for _, rule := range response.PolicyResponse.Rules {
+						if rule.Status() == engineapi.RuleStatusFail {
+							failed = true
+						}
+					}
+				}
+				if tc.wantFail {
+					require.True(t, matched, "expected a response for %s", tc.policy)
+					assert.True(t, failed, "expected a failing rule for %s", tc.policy)
+				} else {
+					assert.False(t, failed, "CREATE-scoped policy must not fail in CONNECT run")
+				}
+			})
+		}
+	})
+
+	t.Run("default run skips the CONNECT-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		require.NotEmpty(t, responses)
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-connect" {
+				assert.Empty(t, response.PolicyResponse.Rules, "CONNECT-scoped policy must not match the default CREATE run")
+			}
+		}
+	})
+
+	t.Run("default run evaluates the CREATE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "require-env-label" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for require-env-label in the default run")
+	})
+}
+
 func Test_InvalidResultOperation(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
@@ -1354,13 +1439,293 @@ func Test_InvalidResultOperation(t *testing.T) {
 	testCases := test.LoadTest(nil, testFile)
 	require.Len(t, testCases, 1)
 	testCase := testCases[0]
-	testCase.Test.Results[0].Operation = "CONNECT"
+	testCase.Test.Results[0].Operation = "INVALID"
 
 	_, err = runTest(context.TODO(), io.Discard, testCase, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid operation")
 }
 
+func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-connect")
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+
+	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results[0].IsValidatingAdmissionPolicy = true
+		tc.Test.Results[0].IsMutatingAdmissionPolicy = false
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results[0].IsValidatingAdmissionPolicy = false
+		tc.Test.Results[0].IsMutatingAdmissionPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results[0].IsMutatingPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects inherited global CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].IsValidatingAdmissionPolicy = true
+		tc.Test.Results[0].IsMutatingAdmissionPolicy = false
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects inherited global CONNECT for MutatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].IsMutatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for JSON payload", func(t *testing.T) {
+		jsonTestDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-check-dockerfile")
+		testCases := test.LoadTest(nil, filepath.Join(jsonTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON payloads")
+	})
+
+	t.Run("rejects inherited global CONNECT for JSON payload", func(t *testing.T) {
+		jsonTestDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-check-dockerfile")
+		testCases := test.LoadTest(nil, filepath.Join(jsonTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON payloads")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode ValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		jsonPolicyDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-check-dockerfile")
+		tc.Test.Policies = []string{filepath.Join(jsonPolicyDir, "policy.yaml")}
+		tc.Test.Results[0].Policy = "check-dockerfile-disallow-curl"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects CONNECT for DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects CONNECT for namespace-qualified DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Policy = "test-ns/deleting-pod-by-name"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects CONNECT for namespace-qualified MutatingPolicy", func(t *testing.T) {
+		mpolTestDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutating-label")
+		testCases := test.LoadTest(nil, filepath.Join(mpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Policy = "test-ns/mutating-label"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for namespace-qualified JSON-mode ValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		jsonPolicyDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-check-dockerfile")
+		tc.Test.Policies = []string{filepath.Join(jsonPolicyDir, "policy.yaml")}
+		tc.Test.Results[0].Policy = "test-ns/check-dockerfile-disallow-curl"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "check-json")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "ivpol-json.yaml")}
+		tc.Test.Results[0].Policy = "ivpol-cli-sample"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for JSON-mode ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "check-json")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "ivpol-json.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Policy = "ivpol-cli-sample"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "empty-message")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "policy.yaml")}
+		tc.Test.Results[0].Policy = "sample-ivpol"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "empty-message")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "policy.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Policy = "sample-ivpol"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for DeletingPolicy with empty test results", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		dpolDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		tc.Test.Policies = []string{filepath.Join(dpolDir, "policy.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results = nil
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("does not misclassify cluster-scoped policy when name overlaps across scopes", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results = []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:    "overlap-policy",
+					Operation: "CONNECT",
+				},
+			},
+		}
+		mutatingPolicyNames := sets.New[string]()
+		mutatingPolicyNames.Insert(policyKey("prod", "overlap-policy"))
+		assert.False(t, matchesPolicy(mutatingPolicyNames, tc.Test.Results[0].Policy))
+		assert.True(t, matchesPolicy(mutatingPolicyNames, "prod/overlap-policy"))
+	})
+}
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
