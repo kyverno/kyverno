@@ -134,7 +134,7 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, nil, nil, err
 	}
 
-	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
+	bundles, hash := v.loadBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
 	cOpts.NewBundleFormat = len(bundles) > 0
 	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
@@ -152,10 +152,18 @@ const bundleLayerMediaTypePrefix = "application/vnd.dev.sigstore.bundle"
 // candidate ever gets: verification reuses these parsed bundles instead of
 // asking cosign to fetch them again. A referrer that cannot be read or parsed
 // within the limit is skipped, not fatal, matching cosign's own GetBundles,
-// which continues past any referrer it cannot turn into a bundle.
-func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremote.Option) ([]*sgbundle.Bundle, *v1.Hash) {
-	digest, err := ociremote.ResolveDigest(ref, registryClientOpts...)
+// which continues past any referrer it cannot turn into a bundle. A registry
+// response whose body is cut short (truncated body, connection reset) is read
+// again a bounded number of times, within ctx and a per-call retry budget, before
+// the referrer is skipped. Failures of the registry request itself are left to
+// go-containerregistry's own retry.
+func (v *Verifier) loadBundles(ctx context.Context, ref name.Reference, registryClientOpts []ociremote.Option) ([]*sgbundle.Bundle, *v1.Hash) {
+	budget := newRetryBudget(maxRetriesPerLoad)
+	digest, err := retryTransient(ctx, budget, func() (name.Digest, error) {
+		return ociremote.ResolveDigest(ref, registryClientOpts...)
+	})
 	if err != nil {
+		v.logBundleDetectionFailed("cannot resolve image digest", ref.String(), err)
 		return nil, nil
 	}
 	hash, err := v1.NewHash(digest.Identifier())
@@ -163,8 +171,11 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 		return nil, nil
 	}
 
-	index, err := ociremote.Referrers(digest, "", registryClientOpts...)
+	index, err := retryTransient(ctx, budget, func() (*v1.IndexManifest, error) {
+		return ociremote.Referrers(digest, "", registryClientOpts...)
+	})
 	if err != nil {
+		v.logBundleDetectionFailed("cannot list referrers", digest.String(), err)
 		return nil, nil
 	}
 
@@ -182,9 +193,11 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 		}
 		// ociremote carries the attestor's source credentials and name options, so
 		// the referrer manifest must be fetched through it and not through remote.
-		img, err := ociremote.SignedImage(st, registryClientOpts...)
+		img, err := retryTransient(ctx, budget, func() (oci.SignedImage, error) {
+			return ociremote.SignedImage(st, registryClientOpts...)
+		})
 		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot fetch referrer manifest", "digest", result.Digest.String(), "err", err.Error())
+			v.logSkippedRead("cannot fetch referrer manifest", result.Digest.String(), err)
 			continue
 		}
 		manifest, err := img.Manifest()
@@ -203,7 +216,9 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 		if err != nil || len(layers) != 1 {
 			continue
 		}
-		bundle, err := parseBundleLayer(layers[0])
+		bundle, err := retryTransient(ctx, budget, func() (*sgbundle.Bundle, error) {
+			return parseBundleLayer(layers[0])
+		})
 		if err != nil {
 			// A referrer refused for size carries the bundle media type, so it was
 			// meant to be a bundle: say so at a level the operator actually sees,
@@ -211,7 +226,7 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 			if stderrors.Is(err, verifiers.ErrLayerTooLarge) {
 				v.log.Info("skipping bundle referrer: exceeds the payload limit, raise --imageVerifyPayloadLimit to accept it", "digest", result.Digest.String(), "err", err.Error())
 			} else {
-				v.log.V(2).Info("skipping referrer: not a usable sigstore bundle", "digest", result.Digest.String(), "err", err.Error())
+				v.logSkippedRead("not a usable sigstore bundle", result.Digest.String(), err)
 			}
 			continue
 		}
@@ -219,6 +234,28 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 	}
 
 	return bundles, &hash
+}
+
+// logSkippedRead records why a registry read was given up on: at the default
+// level when the failure is a transient one (so the registry was likely only
+// briefly unavailable and the referrer may be hidden), at V(2) otherwise.
+func (v *Verifier) logSkippedRead(what, target string, err error) {
+	if isTransientFetchError(err) {
+		v.log.Info("skipping referrer: transient registry read error", "read", what, "target", target, "err", err.Error())
+		return
+	}
+	v.log.V(2).Info("skipping referrer: "+what, "target", target, "err", err.Error())
+}
+
+// logBundleDetectionFailed records an image-wide failure (digest resolution or
+// referrers listing), where no individual referrer has been looked at yet. The
+// level follows the same rule as logSkippedRead.
+func (v *Verifier) logBundleDetectionFailed(what, target string, err error) {
+	if isTransientFetchError(err) {
+		v.log.Info("bundle detection failed: transient registry read error", "read", what, "target", target, "err", err.Error())
+		return
+	}
+	v.log.V(2).Info("bundle detection failed: "+what, "target", target, "err", err.Error())
 }
 
 // parseBundleLayer applies cosign ociremote.Bundle's acceptance predicate to a
