@@ -915,8 +915,8 @@ func TestGenerateFullFlow_ExceptionWithMatchCondition(t *testing.T) {
 
 func TestGenerateFullFlow_MatchConditionFalse_NoGeneration(t *testing.T) {
 	// A policy has a match condition restricting generation to the "restricted"
-	// namespace. A pod in "default" doesn't match, so the engine skips evaluation
-	// and no downstream resource is created.
+	// namespace. A pod in "default" doesn't match, so admission does not queue an
+	// UpdateRequest and no downstream resource is created.
 	policy := &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "gen-restricted-only"},
 		Spec: policiesv1beta1.GeneratingPolicySpec{
@@ -959,11 +959,9 @@ func TestGenerateFullFlow_MatchConditionFalse_NoGeneration(t *testing.T) {
 	resp := h.Generate(policyCtx, logr.Discard(), framework.PodAdmissionRequestWithOp("wrong-ns-pod", "default", admissionv1.Create, triggerPodJSON), "", time.Now())
 	assert.True(t, resp.Allowed)
 
-	require.Eventually(t, func() bool {
-		return len(mock.GetSpecs()) >= 1
-	}, 5*time.Second, 100*time.Millisecond, "UR not processed in time")
-
-	assert.Empty(t, mock.ProcessingErrors())
+	require.Never(t, func() bool {
+		return len(mock.GetSpecs()) > 0
+	}, 2*time.Second, 100*time.Millisecond, "a non-matching resource must not create an UpdateRequest")
 
 	cm := &corev1.ConfigMap{}
 	err := testEnv.Client.Get(context.Background(), client.ObjectKey{

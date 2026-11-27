@@ -18,8 +18,11 @@ by its own handler package under `pkg/webhooks/resource/`:
   `/mpol/*policies` / `/nmpol/*policies`.
 - `pkg/webhooks/resource/gpol` — `GeneratingPolicy`/`NamespacedGeneratingPolicy`, served at
   `/gpol/*policies` / `/ngpol/*policies`. For non-dry-run requests it calls `h.urGenerator.Apply`
-  (`pkg/webhooks/updaterequest/generator.go`) to queue background generation as an `UpdateRequest`;
-  a dry-run request returns immediately with no `UpdateRequest` created
+  (`pkg/webhooks/updaterequest/generator.go`) only for a named policy whose admission plan queues
+  the request. The plan checks `resourceNames` and match conditions, and on DELETE or when an
+  UPDATE stops matching it checks the previous object so synchronize can remove downstream
+  resources. A request that is not a trigger creates no `UpdateRequest`. A dry-run request
+  returns immediately with no `UpdateRequest` created
   (`admissionutils.IsDryRun(request.AdmissionRequest)` guard). See
   [pkg/background/AGENTS.md](../background/AGENTS.md) for what happens after the `UpdateRequest` is
   created.

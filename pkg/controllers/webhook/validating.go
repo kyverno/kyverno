@@ -447,10 +447,19 @@ func validConditions(celExpressionCache *expressionCache, conditions []admission
 	if err != nil {
 		logger.V(6).Info("skip building the webhook with Kubernetes unknown match conditions", "error", err.ToAggregate().Error())
 	}
+	// Keep every condition the API server can compile. One Kyverno-only function
+	// used to drop the rest, so a policy whose other conditions were ordinary
+	// object checks was registered with no match conditions at all.
+	if len(valid) == 0 {
+		if len(conditions) == 0 {
+			return conditions
+		}
+		return nil
+	}
 	if len(valid) == len(conditions) {
 		return conditions
 	}
-	return nil
+	return valid
 }
 
 // generatingPolicySpec returns the spec if the policy is a GeneratingPolicy or a
