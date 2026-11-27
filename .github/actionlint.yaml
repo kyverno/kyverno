@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    - cncf-ubuntu-8-32-x86
+    - cncf-ubuntu-16-64-x86
