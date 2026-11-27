@@ -942,7 +942,12 @@ test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conf
 #############
 
 .PHONY: test-cli
-test-cli: test-cli-local ## Run all CLI tests
+test-cli: test-cli-local test-cli-serve ## Run all CLI tests
+
+.PHONY: test-cli-serve
+test-cli-serve: $(CLI_BIN) ## Run kyverno serve end-to-end curl tests (requires curl and jq)
+	@echo Running kyverno serve e2e tests... >&2
+	@./test/cli/serve/e2e.sh $(CLI_BIN)
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless ## Run local CLI tests

@@ -1,0 +1,16 @@
+# The CEL expression does not compile. Kubernetes' admission libraries compile VAP and MAP
+# expressions at evaluation time, so kyverno serve reports this as decision Error, never Allow.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: broken-vap
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [apps]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [deployments]
+  validations:
+  - expression: "object.spec.replicas =="

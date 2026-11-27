@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-dockerfile-disallow-wget
+spec:
+  evaluation:
+    mode: JSON
+  matchConditions:
+  - name: is-dockerfile
+    expression: has(object.Stages)
+  validations:
+  - expression: "!object.Stages.exists(s, s.Commands.exists(c, c.Name == 'RUN' && c.CmdLine.exists(l, l.contains('wget'))))"
+    message: "wget is not allowed"
