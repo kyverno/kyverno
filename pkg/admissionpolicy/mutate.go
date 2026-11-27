@@ -135,6 +135,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		}
 	}
 
+	original := resource
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
 			if binding.Spec.MatchResources.NamespaceSelector == nil {
@@ -158,7 +159,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespaceName)
 			if err != nil {
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				return er, err
+				return failedBindingResponse(er, original, policy, &bindings[i], err), err
 			}
 			if len(params) == 0 {
 				continue
@@ -180,20 +181,26 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if failsClosed(policy) {
+					return failedBindingResponse(er, original, policy, &bindings[i], err), nil
+				}
 				continue
 			}
-			// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
+			// apply the next binding to the patched resource and keep the rule responses of every binding
 			resource = newEr.PatchedResource
-			er = newEr
+			er = mergeBindingResponse(er, newEr)
 		} else {
 			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if failsClosed(policy) {
+					return failedBindingResponse(er, original, policy, &bindings[i], err), nil
+				}
 				continue
 			}
-			// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
+			// apply the next binding to the patched resource and keep the rule responses of every binding
 			resource = newEr.PatchedResource
-			er = newEr
+			er = mergeBindingResponse(er, newEr)
 		}
 	}
 	return er, nil
@@ -203,6 +210,7 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
 
+	original := resource
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
 			matchResources := ConvertMatchResources(binding.Spec.MatchResources)
@@ -238,18 +246,24 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if failsClosed(policy) {
+					return failedBindingResponse(er, original, policy, &bindings[i], err), nil
+				}
 				continue
 			}
 			resource = newEr.PatchedResource
-			er = newEr
+			er = mergeBindingResponse(er, newEr)
 		} else {
 			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if failsClosed(policy) {
+					return failedBindingResponse(er, original, policy, &bindings[i], err), nil
+				}
 				continue
 			}
 			resource = newEr.PatchedResource
-			er = newEr
+			er = mergeBindingResponse(er, newEr)
 		}
 	}
 	return er, nil
@@ -268,6 +282,63 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 		matches = obj.GetName() == ref.Name
 	}
 	return matches
+}
+
+// mergeBindingResponse adds the result of the latest binding to the accumulated response: it keeps
+// the original resource, takes the latest patched resource and appends the latest rule responses,
+// so that every binding applied to the resource is reported and the patches cover all of them.
+func mergeBindingResponse(previous, latest engineapi.EngineResponse) engineapi.EngineResponse {
+	merged := previous.PolicyResponse
+	for i := range latest.PolicyResponse.Rules {
+		rule := latest.PolicyResponse.Rules[i]
+		merged.Add(rule.Stats(), rule)
+	}
+	return previous.
+		WithPatchedResource(latest.PatchedResource).
+		WithPolicyResponse(merged)
+}
+
+// failsClosed reports whether a binding error must reject the request, which is the case unless the
+// policy's failurePolicy is Ignore (Fail is the default).
+func failsClosed(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy) bool {
+	return policy.Spec.FailurePolicy == nil || *policy.Spec.FailurePolicy != admissionregistrationv1beta1.Ignore
+}
+
+// failedBindingResponse returns the accumulated response for a binding that failed to evaluate:
+// the request would be rejected, so the patched resource is rolled back to the original resource,
+// dropping the mutations of earlier bindings, and an error rule is reported for the failed binding.
+func failedBindingResponse(
+	previous engineapi.EngineResponse,
+	original unstructured.Unstructured,
+	policy *admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	binding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	err error,
+) engineapi.EngineResponse {
+	now := time.Now()
+	merged := previous.PolicyResponse
+	ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, "failed to apply mutatingadmissionpolicy binding", err, nil).WithMAPBinding(binding)
+	merged.Add(engineapi.NewExecutionStats(now, now), *ruleResp)
+	return previous.
+		WithPatchedResource(original).
+		WithPolicyResponse(merged)
+}
+
+// attributesForObject returns a copy of the admission attributes with the given object, so that a
+// binding is evaluated against the object produced by the bindings applied before it.
+func attributesForObject(a admission.Attributes, obj unstructured.Unstructured) admission.Attributes {
+	return admission.NewAttributesRecord(
+		obj.DeepCopyObject(),
+		a.GetOldObject(),
+		a.GetKind(),
+		a.GetNamespace(),
+		a.GetName(),
+		a.GetResource(),
+		a.GetSubresource(),
+		a.GetOperation(),
+		a.GetOperationOptions(),
+		a.IsDryRun(),
+		a.GetUserInfo(),
+	)
 }
 
 func mutateResource(
@@ -315,7 +386,7 @@ func mutateResource(
 	} else {
 		failPolicy = admissionregistrationv1.FailurePolicyType(*policy.Spec.FailurePolicy)
 	}
-	versionedAttributes, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
+	versionedAttributes, _ := admission.NewVersionedAttributes(attributesForObject(a, resource), a.GetKind(), nil)
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 
 	// compile match conditions and check if the incoming resource matches them
