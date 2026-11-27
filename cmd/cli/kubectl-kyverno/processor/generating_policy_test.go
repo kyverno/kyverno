@@ -15,7 +15,12 @@ import (
 )
 
 // Test_ApplyPoliciesOnResource_preservesSkippedGeneratingPolicy verifies that a skipped
-// GeneratingPolicy still produces an engine response for CLI test result handling.
+// GeneratingPolicy produces a real Skip rule response (gpol's engine now sets one, matching
+// vpol/mpol - see pkg/cel/policies/gpol/engine/engine.go), not just an engine response with no
+// rules at all. A response with zero rules was enough for the CLI test command's result matcher
+// (what this test originally pinned down, kyverno#17382/#17388), but it left `kyverno apply`'s
+// pass/fail/warn/error/skip tally and both its plain-text and --table output printing nothing
+// for this resource, with no way to tell "correctly skipped" apart from "something broke".
 func Test_ApplyPoliciesOnResource_preservesSkippedGeneratingPolicy(t *testing.T) {
 	policy := &policiesv1beta1.GeneratingPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -75,7 +80,8 @@ func Test_ApplyPoliciesOnResource_preservesSkippedGeneratingPolicy(t *testing.T)
 	assert.NilError(t, err)
 	assert.Equal(t, len(responses), 1)
 	assert.Equal(t, responses[0].Policy().GetName(), policy.Name)
-	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 0)
+	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
+	assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip)
 }
 
 // Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy verifies that a NamespacedGeneratingPolicy
