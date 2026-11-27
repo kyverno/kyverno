@@ -3,11 +3,34 @@ package compiler
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
+	sdkhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// getWithoutWaitingForDial calls ctx.Get and reports whether it returned within a short
+// window. The blocklist check runs synchronously before any dial, so a blocklist rejection
+// returns immediately. If the call is still pending, the dial started, which means the
+// request got past the blocklist.
+// The SDK builds requests with context.TODO() and exposes no dialer or context option,
+// so an allowed request cannot be cancelled. After the window the goroutine finishes on
+// its own at the SDK's 30s dial timeout; it only writes to a buffered channel.
+func getWithoutWaitingForDial(ctx sdkhttp.ContextInterface, url string) (bool, error) {
+	done := make(chan error, 1) // buffered so the goroutine can finish after the test ends
+	go func() {
+		_, err := ctx.Get(url, nil)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		return true, err
+	case <-time.After(2 * time.Second):
+		return false, nil
+	}
+}
 
 func TestNewLazyCELHTTPContext_NeverErrors(t *testing.T) {
 	// Construction must never error even with a completely invalid blocklist,
@@ -109,13 +132,13 @@ func TestHTTPContextSeparation(t *testing.T) {
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
-		// In-cluster service CIDRs should not be blocked by default.
-		_, err := ctx.Get("http://10.1.2.3", nil)
-		// Error is expected (no actual server) but NOT due to blocklist
-		if err != nil {
+		returned, err := getWithoutWaitingForDial(ctx, "http://10.1.2.3:8080/")
+		if returned && err != nil {
+			// The dial failed fast on this machine. It must not be a policy rejection.
 			assert.NotContains(t, err.Error(), "blocked")
 			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 		}
+		// If it did not return, the dial is in progress, so the blocklist let it through.
 	})
 
 	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
@@ -124,19 +147,36 @@ func TestHTTPContextSeparation(t *testing.T) {
 		ctx := NewLazyCELHTTPContext("my-namespace")
 		require.NotNil(t, ctx)
 
-		_, err := ctx.Get("http://10.1.2.3", nil)
-		if err != nil {
+		returned, err := getWithoutWaitingForDial(ctx, "http://10.1.2.3")
+		if returned && err != nil {
 			assert.NotContains(t, err.Error(), "blocked")
 			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 		}
+	})
+
+	t.Run("opted-in namespaced policies are checked against the blocklist, not the toggle", func(t *testing.T) {
+		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
+
+		ctx := NewLazyCELHTTPContext("my-namespace")
+		require.NotNil(t, ctx)
+
+		// A blocked address proves the request passed the namespaced toggle and reached
+		// the shared blocklist, without starting a network dial.
+		returned, err := getWithoutWaitingForDial(ctx, "http://169.254.169.254")
+		require.True(t, returned, "request was not rejected before dialing")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "blocked")
+		assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 	})
 
 	t.Run("shared policy blocklist blocks dangerous metadata services", func(t *testing.T) {
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
-		// Metadata services should be blocked for all policy scopes.
-		_, err := ctx.Get("http://169.254.169.254", nil)
+		// Metadata services should be blocked for all policy scopes, and the rejection
+		// must happen before any dial.
+		returned, err := getWithoutWaitingForDial(ctx, "http://169.254.169.254")
+		require.True(t, returned, "request was not rejected before dialing")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "blocked")
 	})
