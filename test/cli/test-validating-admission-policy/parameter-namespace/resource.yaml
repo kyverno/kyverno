@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload
+  namespace: default
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: workload
+  template:
+    metadata:
+      labels:
+        app: workload
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
