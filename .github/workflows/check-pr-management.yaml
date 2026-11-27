@@ -24,6 +24,11 @@ on:
 
 permissions: {}
 
+# Cancel superseded PR runs only; push runs never share a group.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     permissions:

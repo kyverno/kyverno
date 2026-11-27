@@ -28,7 +28,8 @@ concurrency:
 jobs:
   test:
     name: PR triage regression tests
-    runs-on: ubuntu-latest
+    # ubuntu-latest is Ubuntu 26.04, which has no Python 3.9 build for actions/setup-python.
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
