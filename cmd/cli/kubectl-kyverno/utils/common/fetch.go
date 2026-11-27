@@ -29,7 +29,14 @@ var errOpenResourceFile = errors.New("open resource file")
 
 type resourceTypeInfo struct {
 	gvkMap         map[schema.GroupVersionKind]bool
-	subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
+	subresourceMap map[subresourceKey]v1alpha1.Subresource
+}
+
+// subresourceKey distinguishes endpoints that return the same GVK, such as status and resize or different parents' scale endpoints.
+type subresourceKey struct {
+	schema.GroupVersionKind
+	parent schema.GroupVersionResource
+	name   string
 }
 type ResourceFetcher struct {
 	Out                  io.Writer
@@ -96,14 +103,14 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	resources := make([]*unstructured.Unstructured, 0)
 	info := &resourceTypeInfo{
 		gvkMap:         make(map[schema.GroupVersionKind]bool),
-		subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+		subresourceMap: make(map[subresourceKey]v1alpha1.Subresource),
 	}
 	// extract the matched resources from the policies.
 	rf.extractResourcesFromPolicies(info)
 	resourceMap := make(map[string]*unstructured.Unstructured)
-	var err error
-	// fetch the resources from the cluster.
-	if rf.ResourceOptions.Concurrency > 1 {
+	// Load ordinary resources concurrently even when subresources also match.
+	// The concurrent loader accepts GVKs only and cannot address subresource endpoints.
+	if rf.ResourceOptions.Concurrency > 1 && len(info.gvkMap) > 0 {
 		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
 		// Convert gvkMaps to slice
 		gvks := make([]schema.GroupVersionKind, 0, len(info.gvkMap))
@@ -119,29 +126,21 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 			key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
 			resourceMap[key] = resource.DeepCopy()
 		}
-
-		if len(info.subresourceMap) > 0 {
-			var subResourceGvks []schema.GroupVersionKind
-			for subGvk := range info.subresourceMap {
-				subResourceGvks = append(subResourceGvks, subGvk)
-			}
-			rf.ResourceOptions.ResourceTypes = subResourceGvks
-			subResourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
-			log.Log.V(3).Info("Loading sublist concurrently", "count", len(subResourceList))
-			if err != nil {
-				return nil, err
-			}
-			for _, resource := range subResourceList {
-				key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
-				resourceMap[key] = resource.DeepCopy()
-			}
-		}
-	} else {
+		// Only subresources remain for the sequential loader. Keep their endpoint
+		// identities separate when merging with the concurrently loaded parents.
+		info = &resourceTypeInfo{subresourceMap: info.subresourceMap}
+	}
+	if len(info.gvkMap) > 0 || len(info.subresourceMap) > 0 {
 		start := time.Now()
 		log.Log.V(3).Info("Loading resources sequentially...")
-		resourceMap, err = rf.listResources(info)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		sequentialResources, err := rf.listResources(ctx, info)
 		if err != nil {
 			return nil, err
+		}
+		for key, resource := range sequentialResources {
+			resourceMap[key] = resource
 		}
 		log.Log.V(3).Info("Loaded resources in", "duration", time.Since(start))
 	}
@@ -248,7 +247,19 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 				Version: child.Version,
 				Kind:    child.Kind,
 			}
-			info.subresourceMap[subGVK] = v1alpha1.Subresource{
+			// Discovery can omit a subresource's group and version when it inherits them from its parent.
+			if subGVK.Group == "" {
+				subGVK.Group = parent.Group
+			}
+			if subGVK.Version == "" {
+				subGVK.Version = parent.Version
+			}
+			key := subresourceKey{
+				GroupVersionKind: subGVK,
+				parent:           parent.GroupVersionResource(),
+				name:             parent.SubResource,
+			}
+			info.subresourceMap[key] = v1alpha1.Subresource{
 				Subresource: child,
 				ParentResource: metav1.APIResource{
 					Group:   parent.Group,
@@ -261,7 +272,9 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 	}
 }
 
+// listResources fetches matched resources sequentially, preserving API groups and subresource identities.
 func (rf *ResourceFetcher) listResources(
+	ctx context.Context,
 	info *resourceTypeInfo,
 ) (map[string]*unstructured.Unstructured, error) {
 	result := make(map[string]*unstructured.Unstructured)
@@ -269,37 +282,44 @@ func (rf *ResourceFetcher) listResources(
 	// list standard resources
 	for gvk := range info.gvkMap {
 		resourceList, err := rf.Client.ListResource(
-			context.TODO(),
+			ctx,
 			gvk.GroupVersion().String(),
 			gvk.Kind,
 			rf.Namespace,
 			nil,
 		)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			log.Log.V(3).Info("failed to list resource", "gvk", gvk, "error", err)
 			continue
 		}
 		for _, resource := range resourceList.Items {
-			key := fmt.Sprintf("%s::%s::%s", gvk.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", gvk.String(), resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(gvk)
 			result[key] = resource.DeepCopy()
 		}
 	}
 
 	// list subresources
-	for subGVK, subresource := range info.subresourceMap {
+	for key, subresource := range info.subresourceMap {
+		subGVK := key.GroupVersionKind
 		parentGV := schema.GroupVersion{
 			Group:   subresource.ParentResource.Group,
 			Version: subresource.ParentResource.Version,
 		}
 		resourceList, err := rf.Client.ListResource(
-			context.TODO(),
+			ctx,
 			parentGV.String(),
 			subresource.ParentResource.Kind,
 			rf.Namespace,
 			nil,
 		)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			log.Log.V(3).Info("failed to list parent resource", "gv", parentGV, "kind", subresource.ParentResource.Kind, "error", err)
 			continue
 		}
@@ -307,7 +327,7 @@ func (rf *ResourceFetcher) listResources(
 		for _, parent := range resourceList.Items {
 			subresourceName := strings.Split(subresource.Subresource.Name, "/")[1]
 			resource, err := rf.Client.GetResource(
-				context.TODO(),
+				ctx,
 				parentGV.String(),
 				subresource.ParentResource.Kind,
 				rf.Namespace,
@@ -315,16 +335,19 @@ func (rf *ResourceFetcher) listResources(
 				subresourceName,
 			)
 			if err != nil {
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
 				log.Log.V(3).Info("failed to get subresource", "parent", parent.GetName(), "subresource", subresourceName, "error", err)
 				continue
 			}
 
-			key := fmt.Sprintf("%s::%s::%s", subGVK.Kind, resource.GetNamespace(), resource.GetName())
+			resourceKey := fmt.Sprintf("%s::%s::%s::%s::%s", subGVK.String(), key.parent.String(), subresourceName, resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
-			result[key] = resource.DeepCopy()
+			result[resourceKey] = resource.DeepCopy()
 		}
 	}
-	return result, nil
+	return result, ctx.Err()
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
