@@ -46,6 +46,9 @@ func (p Projection) Evaluate(ctx context.Context, input any) (any, error) {
 // lists/maps recursively, so a projection result composes the same way a JMESPath result
 // does. Deliberately does not normalize numeric types to float64 -- see the design's
 // numeric-semantics note on GlobalContextEntryProjection.
+// Non-primitive values from extension libraries (such as Kubernetes CEL types
+// quantity, IP, CIDR, URL, and Semver) are kept as ref.Val so cel-go's NativeToValue
+// can pass them directly to policies with full type support.
 func celToNative(v ref.Val) (any, error) {
 	switch val := v.(type) {
 	case types.Null:
@@ -82,8 +85,10 @@ func celToNative(v ref.Val) (any, error) {
 			result[name] = elem
 		}
 		return result, nil
-	default:
+	case types.Bool, types.Int, types.Uint, types.Double, types.String, types.Bytes, types.Duration, types.Timestamp:
 		return val.Value(), nil
+	default:
+		return val, nil
 	}
 }
 

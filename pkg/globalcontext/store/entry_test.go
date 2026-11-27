@@ -2,14 +2,20 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 func compileProjection(t *testing.T, expr string) Projection {
@@ -129,4 +135,146 @@ func TestProjection_Evaluate_JMESPathUnchanged(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, float64(3), result)
 	assert.IsType(t, float64(0), result, "JMESPath numeric results remain float64")
+}
+
+type testGCEEntry struct {
+	val any
+}
+
+func (e *testGCEEntry) Get(projection string) (any, error) {
+	return e.val, nil
+}
+
+func (e *testGCEEntry) Stop() {}
+
+type testGCEContextProvider struct {
+	gStore Store
+}
+
+func (p *testGCEContextProvider) GetGlobalReference(name, projection string) (any, error) {
+	entry, ok := p.gStore.Get(name)
+	if !ok {
+		return nil, fmt.Errorf("entry %q not found", name)
+	}
+	return entry.Get(projection)
+}
+
+func TestProjection_Evaluate_CELKubernetesTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		expr string
+	}{
+		{"quantity", "quantity('2Gi')"},
+		{"ip", "ip('10.1.2.3')"},
+		{"cidr", "cidr('10.0.0.0/8')"},
+		{"url", "url('https://example.com/path')"},
+		{"semver", "semver('1.2.3')"},
+	}
+
+	env, err := cel.NewEnv(compiler.DefaultEnvOptions()...)
+	require.NoError(t, err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proj := compileProjection(t, tt.expr)
+			result, err := proj.Evaluate(context.Background(), nil)
+			require.NoError(t, err)
+
+			// Result should remain a ref.Val rather than unwrapped to a raw Go struct
+			refVal, ok := result.(ref.Val)
+			require.True(t, ok, "result for %s should be a ref.Val, got %T", tt.name, result)
+			assert.False(t, types.IsError(refVal))
+
+			// cel-go's NativeToValue must accept the result without "unsupported conversion to ref.Val" error
+			converted := env.TypeAdapter().NativeToValue(result)
+			assert.False(t, types.IsError(converted), "NativeToValue failed for %s: %v", tt.name, converted)
+		})
+	}
+}
+
+func TestProjection_Evaluate_CELKubernetesTypes_PolicyRead(t *testing.T) {
+	tests := []struct {
+		name       string
+		projection string
+		policyExpr string
+		want       any
+	}{
+		{
+			name:       "quantity comparison",
+			projection: "quantity('2Gi')",
+			policyExpr: `globalContext.get("limits", "").isGreaterThan(quantity("1Gi"))`,
+			want:       true,
+		},
+		{
+			name:       "ip check",
+			projection: "ip('10.1.2.3')",
+			policyExpr: `globalContext.get("limits", "").family() == 4`,
+			want:       true,
+		},
+		{
+			name:       "cidr contains IP",
+			projection: "cidr('10.0.0.0/8')",
+			policyExpr: `globalContext.get("limits", "").containsIP(ip("10.1.2.3"))`,
+			want:       true,
+		},
+		{
+			name:       "url scheme",
+			projection: "url('https://example.com/path')",
+			policyExpr: `globalContext.get("limits", "").getScheme() == "https"`,
+			want:       true,
+		},
+		{
+			name:       "semver comparison",
+			projection: "semver('1.2.3')",
+			policyExpr: `globalContext.get("limits", "").isGreaterThan(semver("1.0.0"))`,
+			want:       true,
+		},
+		{
+			name:       "quantity inside map",
+			projection: "{'maxMemory': quantity('2Gi')}",
+			policyExpr: `globalContext.get("limits", "")['maxMemory'].isGreaterThan(quantity("1Gi"))`,
+			want:       true,
+		},
+		{
+			name:       "quantity inside list",
+			projection: "[quantity('500Mi'), quantity('2Gi')]",
+			policyExpr: `globalContext.get("limits", "")[1].isGreaterThan(quantity("1Gi"))`,
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proj := compileProjection(t, tt.projection)
+			result, err := proj.Evaluate(context.Background(), nil)
+			require.NoError(t, err)
+
+			gStore := New(0)
+			require.NoError(t, gStore.Set("limits", &testGCEEntry{val: result}))
+
+			cp := &testGCEContextProvider{gStore: gStore}
+			env, err := cel.NewEnv(
+				append(
+					compiler.DefaultEnvOptions(),
+					globalcontext.Lib(
+						globalcontext.Context{ContextInterface: cp},
+						version.MajorMinor(1, 18),
+					),
+				)...,
+			)
+			require.NoError(t, err)
+
+			ast, iss := env.Compile(tt.policyExpr)
+			require.NoError(t, iss.Err())
+
+			prg, err := compiler.NewProgram(env, ast)
+			require.NoError(t, err)
+
+			out, _, err := prg.Eval(map[string]any{
+				"globalContext": globalcontext.Context{ContextInterface: cp},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
 }
