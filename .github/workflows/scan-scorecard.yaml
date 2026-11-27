@@ -19,9 +19,17 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    # The analysis uses GITHUB_TOKEN. The organization blocks classic personal
+    # access tokens, and Scorecard needs an admin token only for parts of the
+    # Branch-Protection check.
     permissions:
-      security-events: write
+      # actions, contents: read the workflows and the repository
+      actions: read
+      contents: read
+      # id-token: publish the results to the OpenSSF API
       id-token: write
+      # security-events: upload the results to code scanning
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,7 +40,6 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
           publish_results: true
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
