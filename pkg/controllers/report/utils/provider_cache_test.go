@@ -582,6 +582,87 @@ func TestProviderCache_InflightEvictDoesNotResurrect(t *testing.T) {
 	assert.Equal(t, int32(2), compileCount.Load(), "evicted in-flight compilation must not be resurrected in cache")
 }
 
+func TestProviderCache_DetachedWaiterDoesNotOverwriteNewerEntry(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		detach func(ProviderCache, *policiesv1beta1.ValidatingPolicy)
+	}{
+		{
+			name: "evict",
+			detach: func(c ProviderCache, p *policiesv1beta1.ValidatingPolicy) {
+				c.Evict(p.GetKind(), p.GetNamespace(), p.GetName())
+			},
+		},
+		{
+			name: "clear",
+			detach: func(c ProviderCache, _ *policiesv1beta1.ValidatingPolicy) {
+				c.Clear()
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cache := NewProviderCache()
+			var compileCount atomic.Int32
+			compile1Started := make(chan struct{})
+			allowCompile1Finish := make(chan struct{})
+
+			HookVpolCompiled = func() {
+				if compileCount.Add(1) == 1 {
+					close(compile1Started)
+					<-allowCompile1Finish
+				}
+			}
+			defer func() { HookVpolCompiled = nil }()
+
+			policyV1 := newTestValidatingPolicy("detached-waiter-vpol", "1")
+			policyV2 := newTestValidatingPolicy("detached-waiter-vpol", "2")
+
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			// Goroutine 1 acquires slot1.mu and blocks in compile(v1).
+			go func() {
+				defer wg.Done()
+				p, err := cache.GetValidatingPolicyProvider(policyV1, nil, celengine.ExceptionScopeAll)
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+			}()
+
+			<-compile1Started
+
+			// Goroutine 2 sees slot1 in the map and blocks waiting on slot1.mu.
+			go func() {
+				defer wg.Done()
+				p, err := cache.GetValidatingPolicyProvider(policyV1, nil, celengine.ExceptionScopeAll)
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+			}()
+
+			// Give Goroutine 2 a moment to enter slot1.mu.Lock() before detaching slot1.
+			time.Sleep(20 * time.Millisecond)
+			tc.detach(cache, policyV1)
+
+			// Populate a replacement slot with v2 while Goroutine 1 and 2 are still on slot1.
+			p2, err := cache.GetValidatingPolicyProvider(policyV2, nil, celengine.ExceptionScopeAll)
+			require.NoError(t, err)
+			require.NotNil(t, p2)
+			compilesAfterV2 := compileCount.Load()
+
+			// Unblock Goroutine 1, which also unblocks Goroutine 2 on slot1.mu.
+			close(allowCompile1Finish)
+			wg.Wait()
+
+			// Neither Goroutine 1 nor Goroutine 2 may overwrite v2 in the replacement slot.
+			compilesBeforeCheck := compileCount.Load()
+			p2Again, err := cache.GetValidatingPolicyProvider(policyV2, nil, celengine.ExceptionScopeAll)
+			require.NoError(t, err)
+			require.NotNil(t, p2Again)
+			assert.GreaterOrEqual(t, compilesAfterV2, int32(2))
+			assert.Equal(t, compilesBeforeCheck, compileCount.Load(), "detached waiter must not overwrite newer cached entry")
+		})
+	}
+}
+
 func TestScanner_ProviderCachingAcrossResources(t *testing.T) {
 	var compileCount int
 	HookVpolCompiled = func() { compileCount++ }

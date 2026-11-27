@@ -99,49 +99,49 @@ func (s *providerStore[T]) getOrCompile(
 	}
 	s.lock.RUnlock()
 
-	for {
-		s.lock.Lock()
-		slot = s.slots[key]
-		if slot == nil {
-			slot = &cacheSlot[T]{}
-			s.slots[key] = slot
-		}
-		s.lock.Unlock()
-
-		provider, err, done := s.tryFillSlot(slot, key, rv, excKey, compile)
-		if done {
-			return provider, err
-		}
+	s.lock.Lock()
+	slot = s.slots[key]
+	if slot == nil {
+		slot = &cacheSlot[T]{}
+		s.slots[key] = slot
 	}
+	s.lock.Unlock()
+
+	return s.fillSlot(slot, key, rv, excKey, compile)
 }
 
-func (s *providerStore[T]) tryFillSlot(
+func (s *providerStore[T]) fillSlot(
 	slot *cacheSlot[T],
 	key string,
 	rv string,
 	excKey string,
 	compile func() (T, error),
-) (T, error, bool) {
+) (T, error) {
 	slot.mu.Lock()
-	defer slot.mu.Unlock()
 
 	// Confirm the slot is still active in the map (Evict/Clear may have detached it
 	// before slot.mu was acquired) and re-check in case another worker just filled it.
 	s.lock.RLock()
 	active := s.slots[key] == slot
 	var hit *cachedEntry[T]
-	if active && slot.entry != nil && slot.entry.policyRV == rv && slot.entry.exceptionsKey == excKey {
+	if slot.entry != nil && slot.entry.policyRV == rv && slot.entry.exceptionsKey == excKey {
 		hit = slot.entry
 	}
 	s.lock.RUnlock()
 
-	if !active {
-		var zero T
-		return zero, nil, false
-	}
 	if hit != nil {
-		return hit.provider, hit.err, true
+		slot.mu.Unlock()
+		return hit.provider, hit.err
 	}
+	if !active {
+		// Slot was detached by Evict/Clear while waiting on slot.mu; compile
+		// directly without publishing or retrying into a replacement slot so
+		// stale revisions cannot overwrite newer entries or resurrect evicted ones.
+		slot.mu.Unlock()
+		return compile()
+	}
+
+	defer slot.mu.Unlock()
 
 	provider, err := compile()
 
@@ -157,7 +157,7 @@ func (s *providerStore[T]) tryFillSlot(
 	}
 	s.lock.Unlock()
 
-	return provider, err, true
+	return provider, err
 }
 
 func (s *providerStore[T]) evict(key string) {
