@@ -7,7 +7,38 @@ import (
 	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+func TestUpdateResourceHashDoesNotRestoreDeletedUID(t *testing.T) {
+	t.Parallel()
+
+	const deletedUID types.UID = "deleted-uid"
+	const liveUID types.UID = "live-uid"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	deleted := Resource{Namespace: "default", Name: "settings", Hash: "deleted-hash"}
+	live := Resource{Namespace: "default", Name: "settings", Hash: "live-hash"}
+	c := &controller{
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {hashes: map[types.UID]Resource{deletedUID: deleted, liveUID: live}},
+		},
+	}
+	obj := &unstructured.Unstructured{}
+	obj.SetUID(deletedUID)
+	c.deleteHash(obj, gvr)
+
+	c.UpdateResourceHash(gvr, deletedUID, deleted)
+	_, _, _, exists := c.GetResourceHash(deletedUID)
+	assert.Assert(t, !exists)
+
+	live.Hash = "updated-hash"
+	c.UpdateResourceHash(gvr, liveUID, live)
+	got, _, _, exists := c.GetResourceHash(liveUID)
+	assert.Assert(t, exists)
+	assert.Equal(t, got, live)
+}
 
 func matchResourcesFor(group, version, resource string) *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
