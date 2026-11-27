@@ -41,7 +41,9 @@ func (permissiveAuthChecker) Check(ctx context.Context, group, version, resource
 	return &checker.AuthResult{Allowed: true}, nil
 }
 
-// newVAPTestController builds a controller backed by fake clientsets and empty listers.
+// newVAPTestController builds a controller backed by fake clientsets. Any existing
+// ValidatingAdmissionPolicy or ValidatingAdmissionPolicyBinding passed in is served both by the
+// fake clientset and by the lister, which the controller reads first.
 func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, existingKubeObjects ...runtime.Object) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
 	t.Helper()
 	kubeClient := kubefake.NewSimpleClientset(existingKubeObjects...)
@@ -56,9 +58,9 @@ func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, 
 	for _, obj := range existingKubeObjects {
 		switch o := obj.(type) {
 		case *admissionregistrationv1.ValidatingAdmissionPolicy:
-			require.NoError(t, vapIndexer.Add(o))
+			require.NoError(t, vapIndexer.Add(o.DeepCopy()))
 		case *admissionregistrationv1.ValidatingAdmissionPolicyBinding:
-			require.NoError(t, vapBindingIndexer.Add(o))
+			require.NoError(t, vapBindingIndexer.Add(o.DeepCopy()))
 		}
 	}
 	vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
