@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+jsonPayloads:
+- input.json
+kind: Test
+metadata:
+  name: json-preserve-doubles
+policies:
+- policy.yaml
+results:
+- isMutatingPolicy: true
+  kind: ""
+  patchedResources: expected.json
+  policy: add-region
+  resources:
+  - input.json
+  result: pass
+- kind: ""
+  policy: require-doubles
+  resources:
+  - input.json
+  result: pass
