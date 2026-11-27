@@ -193,7 +193,26 @@ func (c *controller) syncUpdateRequest(key string) error {
 
 	if ur.Status.State == kyvernov2.Pending {
 		if err := c.processUR(ur); err != nil {
-			return fmt.Errorf("failed to process UR %s: %v", key, err)
+			// A NotFound out of processUR is ambiguous. It can mean the UR
+			// itself vanished mid-processing (a concurrent terminal delete
+			// turned a status write into a 404), but processors also return
+			// raw NotFound errors for other resources: an expression-based
+			// mpol surfaces a missing target unchanged. handleErr drops the
+			// key on any NotFound, so exposing the second kind here would
+			// strand a live UR in Pending with no status update or retry.
+			// Only a confirmed UR-gone earns the %w wrap; the lister cache
+			// tells the two apart. When the cache still has the UR the
+			// NotFound belongs to another resource, so the error goes back
+			// without %w and handleErr rate-limits a retry instead.
+			if apierrors.IsNotFound(err) {
+				if _, getErr := c.urLister.Get(urName); apierrors.IsNotFound(getErr) {
+					// Wrap with %w so handleErr can still recognise a NotFound and
+					// drop the key instead of rate-limiting ten pointless retries.
+					return fmt.Errorf("failed to process UR %s: %w", key, err)
+				}
+				return fmt.Errorf("failed to process UR %s: %v", key, err)
+			}
+			return fmt.Errorf("failed to process UR %s: %w", key, err)
 		}
 	}
 
@@ -336,10 +355,23 @@ func (c *controller) reconcileURStatusAt(ur *kyvernov2.UpdateRequest, now time.T
 	var errUpdate error
 	switch new.Status.State {
 	case kyvernov2.Completed:
-		errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		// A concurrent terminal delete (retry exhaustion, manual cleanup)
+		// may have removed the request after the Get above. That is not a
+		// reconcile failure.
+		if err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Record the already-gone outcome distinctly from a delete
+				// we performed, so the sync log shows who removed it.
+				logger.V(4).Info("completed update request was already deleted, nothing to remove", "name", ur.GetName())
+			} else {
+				errUpdate = err
+			}
+		}
 	case kyvernov2.Failed:
 		new.Status.State = kyvernov2.Pending
-		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+		if _, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			errUpdate = err
+		}
 	case "":
 		// Create and the initial Pending write are separate calls. A failed
 		// status write leaves the request empty. Sync only runs Pending, and
@@ -354,7 +386,9 @@ func (c *controller) reconcileURStatusAt(ur *kyvernov2.UpdateRequest, now time.T
 			return new.Status.State, nil
 		}
 		new.Status.State = kyvernov2.Pending
-		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+		if _, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			errUpdate = err
+		}
 	}
 	return new.Status.State, errUpdate
 }
