@@ -28,6 +28,7 @@ spec:
 `))
 	require.NoError(t, err)
 	require.NotNil(t, resource.GetLabels(), "ObjectMeta normalization must still apply")
+	require.Contains(t, resource.Object, "data", "top-level custom data must remain present")
 	require.Nil(t, resource.Object["data"], "top-level custom data must remain null")
 	for _, name := range []string{"data", "annotations", "labels", "matchLabels", "nodeSelector", "stringData"} {
 		value, found, err := unstructured.NestedFieldNoCopy(resource.Object, "spec", name)
@@ -38,6 +39,7 @@ spec:
 	entries, found, err := unstructured.NestedSlice(resource.Object, "spec", "entries")
 	require.NoError(t, err)
 	require.True(t, found)
+	require.Contains(t, entries[0].(map[string]interface{}), "data", "nested custom data must remain present")
 	require.Nil(t, entries[0].(map[string]interface{})["data"])
 }
 
