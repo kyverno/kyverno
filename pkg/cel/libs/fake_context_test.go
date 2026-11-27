@@ -3,7 +3,9 @@ package libs
 import (
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -64,6 +66,56 @@ func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	_, err = cp4.GetGlobalReference("list-entry", "proj")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not an object")
+}
+
+type fakeGctxEntry struct {
+	objects     any
+	projections map[string]any
+}
+
+func (e *fakeGctxEntry) Get(projection string) (any, error) {
+	if projection == "" {
+		return e.objects, nil
+	}
+	if v, ok := e.projections[projection]; ok {
+		return v, nil
+	}
+	return nil, assert.AnError
+}
+
+func (e *fakeGctxEntry) Stop() {}
+
+func TestFakeContextProvider_GetGlobalReference_GctxStore(t *testing.T) {
+	s := store.New(0)
+	require.NoError(t, s.Set("cm-cache", &fakeGctxEntry{
+		objects: []any{
+			map[string]any{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "cfg"},
+			},
+		},
+		projections: map[string]any{
+			"count": int64(1),
+		},
+	}))
+
+	cp := NewFakeContextProvider()
+	cp.SetGlobalContextStore(s)
+
+	raw, err := cp.GetGlobalReference("cm-cache", "")
+	require.NoError(t, err)
+	require.Len(t, raw, 1)
+
+	proj, err := cp.GetGlobalReference("cm-cache", "count")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), proj)
+
+	// Explicit mock entry takes precedence over gctxStore.
+	cp.AddGlobalReference("cm-cache", map[string]any{"count": int64(9)})
+	override, err := cp.GetGlobalReference("cm-cache", "count")
+	require.NoError(t, err)
+	assert.Equal(t, int64(9), override)
 }
 
 func TestFakeContextProvider_AddGlobalReference_initializesNilMap(t *testing.T) {

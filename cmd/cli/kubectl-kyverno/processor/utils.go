@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -100,4 +101,16 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 
 	libs.LibraryContext = fakeContextProvider
 	return fakeContextProvider, nil
+}
+
+// AttachGlobalContextStore wires a pre-built global context store into an offline
+// CEL Context provider so GlobalContextEntry lookups and projections resolve during
+// local evaluation.
+func AttachGlobalContextStore(ctxProvider libs.Context, gctxStore store.GCtxStore) {
+	if gctxStore == nil || ctxProvider == nil {
+		return
+	}
+	if fakeCP, ok := ctxProvider.(*libs.FakeContextProvider); ok {
+		fakeCP.SetGlobalContextStore(gctxStore)
+	}
 }

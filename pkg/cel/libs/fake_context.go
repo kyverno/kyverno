@@ -4,16 +4,23 @@ import (
 	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// GlobalContextStore provides read access to pre-populated GlobalContextEntry values.
+type GlobalContextStore interface {
+	Get(key string) (gctxstore.Entry, bool)
+}
+
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
 	globalReferences   map[string]any
+	gctxStore          GlobalContextStore
 	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
@@ -67,6 +74,10 @@ func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
 	cp.globalReferences[name] = data
 }
 
+func (cp *FakeContextProvider) SetGlobalContextStore(s GlobalContextStore) {
+	cp.gctxStore = s
+}
+
 func (cp *FakeContextProvider) SetHTTPMocks(mocks map[string]interface{}) {
 	cp.httpMocks = mocks
 }
@@ -76,23 +87,31 @@ func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
 }
 
 func (cp *FakeContextProvider) GetGlobalReference(name, projection string) (any, error) {
-	data, ok := cp.globalReferences[name]
-	if !ok {
-		return nil, nil
-	}
-	// When a projection is requested, look it up inside the stored data map.
-	// This mirrors the real contextProvider.GetGlobalReference which calls
-	// storeEntry.Get(projection) and returns only the projection value.
-	if projection != "" {
-		if m, ok := data.(map[string]interface{}); ok {
-			if v, found := m[projection]; found {
-				return v, nil
+	if data, ok := cp.globalReferences[name]; ok {
+		// When a projection is requested, look it up inside the stored data map.
+		// This mirrors the real contextProvider.GetGlobalReference which calls
+		// storeEntry.Get(projection) and returns only the projection value.
+		if projection != "" {
+			if m, ok := data.(map[string]interface{}); ok {
+				if v, found := m[projection]; found {
+					return v, nil
+				}
+				return nil, fmt.Errorf("projection %q not found in global context entry %q", projection, name)
 			}
-			return nil, fmt.Errorf("projection %q not found in global context entry %q", projection, name)
+			return nil, fmt.Errorf("projection %q not found in global context entry %q: stored value is not an object", projection, name)
 		}
-		return nil, fmt.Errorf("projection %q not found in global context entry %q: stored value is not an object", projection, name)
+		return data, nil
 	}
-	return data, nil
+	if cp.gctxStore != nil {
+		if ent, ok := cp.gctxStore.Get(name); ok {
+			data, err := ent.Get(projection)
+			if err != nil {
+				return nil, err
+			}
+			return unwrapGlobalReference(data)
+		}
+	}
+	return nil, nil
 }
 
 func (cp *FakeContextProvider) GetImageData(image string, _ []remote.Option) (map[string]any, error) {
