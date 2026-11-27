@@ -88,12 +88,7 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	}
 	preconditions := sets.New[string]()
 	for _, target := range targets {
-		apiVersion := target.Group
-		if apiVersion != "" {
-			apiVersion += "/"
-		}
-		apiVersion += target.Version
-		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.Kind))
+		preconditions = preconditions.Insert(apiVersionPrecondition(target))
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
@@ -120,6 +115,30 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 		})
 	}
 	return matchConditions
+}
+
+// apiVersionPrecondition builds the CEL expression that scopes a match
+// condition to target's GroupVersion and Kind. A "*" version means every
+// version in the group, so it must not be compared literally: no admitted
+// object carries an apiVersion such as "apps/*", and the resulting condition
+// could never match.
+func apiVersionPrecondition(target policiesv1beta1.Target) string {
+	var versionMatch string
+	switch {
+	case target.Version != "*":
+		apiVersion := target.Group
+		if apiVersion != "" {
+			apiVersion += "/"
+		}
+		apiVersion += target.Version
+		versionMatch = fmt.Sprintf(`object.apiVersion == '%s'`, apiVersion)
+	case target.Group == "":
+		// The core group has no prefix, so its apiVersion has no slash.
+		versionMatch = `!object.apiVersion.contains('/')`
+	default:
+		versionMatch = fmt.Sprintf(`object.apiVersion.startsWith('%s/')`, target.Group)
+	}
+	return fmt.Sprintf(`(%s && object.kind =='%s')`, versionMatch, target.Kind)
 }
 
 const maxMatchConditionNameLength = 63

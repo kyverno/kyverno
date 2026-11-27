@@ -241,6 +241,43 @@ func TestCreateMatchConditions(t *testing.T) {
 			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
 		}},
 	}, {
+		// A "*" version means every version in the group. Comparing it
+		// literally would produce "apps/*", which no admitted object ever
+		// carries, so the condition could never match.
+		name: "wildcard version matches every version in the group",
+		targets: []policiesv1beta1.Target{{
+			Group:    "apps",
+			Version:  "*",
+			Resource: "deployments",
+			Kind:     "Deployment",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "autogen-foo",
+			Expression: "!((object.apiVersion.startsWith('apps/') && object.kind =='Deployment')) || (something)",
+		}},
+	}, {
+		// A wildcard core-group target has no group prefix in apiVersion, so
+		// matching "the group" means matching an apiVersion without a slash.
+		name: "wildcard version in the core group matches an unqualified apiVersion",
+		targets: []policiesv1beta1.Target{{
+			Group:    "",
+			Version:  "*",
+			Resource: "pods",
+			Kind:     "Pod",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "autogen-foo",
+			Expression: "!((!object.apiVersion.contains('/') && object.kind =='Pod')) || (something)",
+		}},
+	}, {
 		name:         "with name",
 		replacements: "test",
 		targets: []policiesv1beta1.Target{{

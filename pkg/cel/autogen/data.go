@@ -88,3 +88,16 @@ var ConfigsMap = map[string]*Config{
 }
 
 var AllConfigs = sets.New(slices.Collect(maps.Keys(ConfigsMap))...)
+
+// ControllerNames returns the built-in controller resource names, sorted.
+// They are the built-in names ResolveConfig handles, but admission does not
+// validate controller names, so any value in
+// spec.autogen.podControllers.controllers is admitted. Resolution is what
+// differs: ResolveConfig accepts a custom controller as
+// "<resource>.<version>.<group>" unconditionally, and additionally accepts a
+// bare resource name resolvable in the cluster for an already-stored policy or
+// for a caller that does not run admission validation. A Kind name such as
+// "Deployment" resolves to no rule.
+func ControllerNames() []string {
+	return slices.Sorted(maps.Keys(ConfigsMap))
+}

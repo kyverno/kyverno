@@ -38,14 +38,110 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 // It is syntax-aware and skips CEL string literals, rewrites bracket and dot selectors
 // for spec, metadata.labels, and metadata.annotations, and preserves controller metadata fields.
 func ApplyMutatingCEL(data []byte, config string) []byte {
-	specRepl := "spec.template.spec"
-	metaRepl := "spec.template.metadata"
-	if config == "cronjobs" {
-		specRepl = "spec.jobTemplate.spec.template.spec"
-		metaRepl = "spec.jobTemplate.spec.template.metadata"
-	}
+	specRepl, metaRepl := mutatingTemplatePaths(config)
 	roots := [][]byte{[]byte("object"), []byte("oldObject"), []byte("Object")}
 	return rewriteMutatingCEL(data, roots, specRepl, metaRepl)
+}
+
+// QualifyMutatingMetadataType rewrites the dynamic object type name of a
+// metadata constructor - Object.metadata{...} - to the pod template's type name
+// for config, e.g. Object.spec.template.metadata{...}. Only type names need
+// this: ApplyMutatingCEL already rewrites the selector form
+// Object.metadata.labels, but a constructor is followed by '{' rather than a
+// selector, so it keeps its unwrapped name. The ApplyConfiguration compiler
+// requires every nested constructor's type name to match its field path from
+// the root, and metadata sits under spec.template (deeper for a CronJob) once
+// the pod-shaped mutation is wrapped. Constructors of metadata's own
+// sub-objects (e.g. Object.metadata.ownerReferences{...}) carry the same nested
+// path and are qualified too; plain selectors are left to ApplyMutatingCEL.
+func QualifyMutatingMetadataType(data []byte, config string) []byte {
+	_, metaRepl := mutatingTemplatePaths(config)
+	root := []byte("Object")
+	to := []byte("Object." + metaRepl)
+	return transformCEL(data, func(data []byte, i int) (int, []byte, bool) {
+		if !bytes.HasPrefix(data[i:], root) || !isValidBoundary(data, i) {
+			return 0, nil, false
+		}
+		// CEL permits whitespace around the dot, so go through the same
+		// selector scanner the rewrite paths use instead of matching the literal
+		// "Object.metadata". Optional traversal is not a type name.
+		selectorLen, optional, matched := scanDotSelector(data[i+len(root):], "metadata")
+		if !matched || optional {
+			return 0, nil, false
+		}
+		after := data[i+len(root)+selectorLen:]
+		// A type name is only carried by a constructor, so require the selector
+		// chain to end at a constructor body: Object.metadata{...}, and the
+		// descendant constructors of metadata's sub-objects, e.g.
+		// Object.metadata.ownerReferences{...}. Selector forms are left to
+		// ApplyMutatingCEL. Comments and whitespace between a type name and its
+		// brace are CEL trivia.
+		if !isConstructorTypeName(after) {
+			return 0, nil, false
+		}
+		return len(root) + selectorLen, to, true
+	})
+}
+
+// isConstructorTypeName reports whether data continues a constructor type name
+// with a chain of field selectors that ends at a constructor body ('{').
+func isConstructorTypeName(data []byte) bool {
+	idx := skipCELTrivia(data, 0)
+	for {
+		if idx >= len(data) {
+			return false
+		}
+		if data[idx] == '{' {
+			return true
+		}
+		if data[idx] != '.' {
+			return false
+		}
+		idx = skipCELTrivia(data, idx+1)
+		start := idx
+		for idx < len(data) && isIdentifierByte(data[idx]) {
+			idx++
+		}
+		if idx == start {
+			return false
+		}
+		idx = skipCELTrivia(data, idx)
+	}
+}
+
+// skipCELTrivia returns the index of the first byte at or after idx that is
+// neither whitespace nor part of a CEL comment.
+func skipCELTrivia(data []byte, idx int) int {
+	for idx < len(data) {
+		switch {
+		case isWhitespaceByte(data[idx]):
+			idx++
+		case bytes.HasPrefix(data[idx:], []byte("//")):
+			newline := bytes.IndexByte(data[idx:], '\n')
+			if newline < 0 {
+				return len(data)
+			}
+			idx += newline + 1
+		case bytes.HasPrefix(data[idx:], []byte("/*")):
+			end := bytes.Index(data[idx+2:], []byte("*/"))
+			if end < 0 {
+				return len(data)
+			}
+			idx += 2 + end + 2
+		default:
+			return idx
+		}
+	}
+	return idx
+}
+
+// mutatingTemplatePaths returns the workload pod template paths that a
+// pod-shaped mutating expression is rewritten to for config.
+func mutatingTemplatePaths(config string) (specRepl, metaRepl string) {
+	if config == AutogenCronjobs {
+		return "spec.jobTemplate.spec.template.spec", "spec.jobTemplate.spec.template.metadata"
+	}
+	return "spec.template.spec", "spec.template.metadata"
 }
 
 // rewriteField replaces occurrences of `roots` + `fromField` with `roots` + `toField`.
