@@ -41,6 +41,8 @@ func (m *mockConfiguration) GetUpdateRequestThreshold() int64 {
 func (m *mockConfiguration) GetMaxContextSize() int64 {
 	return config.DefaultMaxContextSize
 }
+func (m *mockConfiguration) GetRegistryEgressDeniedHosts() []string { return nil }
+func (m *mockConfiguration) GetRegistryEgressDeniedIPs() []string   { return nil }
 
 func (m *mockConfiguration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
 	return m.excluded

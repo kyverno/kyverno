@@ -76,13 +76,15 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var registrySecretLister corev1listers.SecretLister
 
 	if config.UsesRegistryClient() {
-		_, registrySecretLister = setupRegistryClient(ctx, logger, client)
+		_, registrySecretLister = setupRegistryClient(ctx, logger, client, configuration)
 		verifiers.SetPayloadLimit(imageVerifyPayloadLimit)
 		// The ivpol attestation read goes through the SDK's own loader, which keeps
 		// a separate bound, so the flag has to reach both or that path stays fixed
 		// at the default.
 		imagedataloader.SetPayloadLimit(imageVerifyPayloadLimit)
 		logger.V(2).Info("image verification payload limit", "bytes", verifiers.PayloadLimit())
+	} else if config.UsesRegistryEgress() {
+		setupRegistryEgress(logger, configuration)
 	}
 
 	var imageVerifyCache imageverifycache.Client

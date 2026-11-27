@@ -122,6 +122,34 @@ func (mr *MockConfigurationMockRecorder) GetMaxContextSize() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxContextSize", reflect.TypeOf((*MockConfiguration)(nil).GetMaxContextSize))
 }
 
+// GetRegistryEgressDeniedHosts mocks base method.
+func (m *MockConfiguration) GetRegistryEgressDeniedHosts() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegistryEgressDeniedHosts")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetRegistryEgressDeniedHosts indicates an expected call of GetRegistryEgressDeniedHosts.
+func (mr *MockConfigurationMockRecorder) GetRegistryEgressDeniedHosts() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegistryEgressDeniedHosts", reflect.TypeOf((*MockConfiguration)(nil).GetRegistryEgressDeniedHosts))
+}
+
+// GetRegistryEgressDeniedIPs mocks base method.
+func (m *MockConfiguration) GetRegistryEgressDeniedIPs() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRegistryEgressDeniedIPs")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetRegistryEgressDeniedIPs indicates an expected call of GetRegistryEgressDeniedIPs.
+func (mr *MockConfigurationMockRecorder) GetRegistryEgressDeniedIPs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegistryEgressDeniedIPs", reflect.TypeOf((*MockConfiguration)(nil).GetRegistryEgressDeniedIPs))
+}
+
 // GetSuccessEventActions mocks base method.
 func (m *MockConfiguration) GetSuccessEventActions() sets.Set[string] {
 	m.ctrl.T.Helper()

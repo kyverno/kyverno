@@ -22,6 +22,12 @@ data:
   {{- with .Values.config.successEventActions }}
   successEventActions: {{ . | quote }}
   {{- end }}
+  {{- with .Values.config.registryEgressDeniedHosts }}
+  registryEgressDeniedHosts: {{ join "," . | quote }}
+  {{- end }}
+  {{- with .Values.config.registryEgressDeniedIPs }}
+  registryEgressDeniedIPs: {{ join "," . | quote }}
+  {{- end }}
   {{- with .Values.config.excludeGroups }}
   excludeGroups: {{ join "," . | quote }}
   {{- end -}}

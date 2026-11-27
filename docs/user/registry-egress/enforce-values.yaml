@@ -1,0 +1,55 @@
+# Example only. This is the shipped denylist written out in full, so you can delete the entries
+# your cluster genuinely routes and add the destinations specific to it. Setting either key
+# replaces the shipped list rather than adding to it, which is why every default appears here.
+# Both lists are read once at controller startup: restart the controllers after changing them.
+features:
+  registryClient:
+    # audit logs what enforce would reject and connects anyway; enforce rejects.
+    privateRegistryEgressMode: enforce
+
+config:
+  # Exact hostnames. No wildcards, no subdomain matching, no ports. Cloud metadata is denied by
+  # name as well as by address, because a name is what an image reference actually carries and
+  # the address it resolves to is the provider's choice.
+  registryEgressDeniedHosts:
+    - metadata.internal
+    - metadata.google.internal
+    - instance-data.ec2.internal
+
+  # CIDRs or bare IP addresses, one list item each.
+  registryEgressDeniedIPs:
+    # Never a legitimate registry destination.
+    - 127.0.0.0/8     # Loopback: the controller's own process and its sidecars.
+    - ::1/128         # IPv6 loopback.
+    - 0.0.0.0/8       # "This network": 0.0.0.0 reaches the local host on most stacks.
+    - ::/128          # IPv6 unspecified.
+    - 169.254.0.0/16  # Link-local, including the 169.254.169.254 cloud metadata service.
+    - fe80::/10       # IPv6 link-local.
+    - 224.0.0.0/4     # IPv4 multicast.
+    - ff00::/8        # IPv6 multicast.
+
+    # Cluster-local and cloud-provider infrastructure.
+    - 10.0.0.0/8           # RFC 1918.
+    - 172.16.0.0/12        # RFC 1918.
+    - 192.168.0.0/16       # RFC 1918.
+    - fc00::/7             # IPv6 unique local addresses.
+    - 100.100.100.200/32   # Alibaba Cloud metadata service.
+    - 168.63.129.16/32     # Azure wireserver.
+    - fd00:ec2::254/128    # AWS IMDS over IPv6.
+
+    # IANA special-purpose assignments that are not globally reachable.
+    - 100.64.0.0/10    # RFC 6598 carrier-grade NAT: the operator's own shared address space.
+    - 198.18.0.0/15    # RFC 2544 benchmarking space: never globally routable.
+    - 192.0.0.0/24     # IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
+    - 192.88.99.0/24   # Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
+    - 240.0.0.0/4      # Reserved for future use, including the 255.255.255.255 broadcast address.
+    - 2001::/23        # IPv6 IETF assignments, including Teredo 2001::/32 tunnel endpoints.
+    - 100::/64         # Discard-only: a route here is local policy, not a destination.
+    - 192.0.2.0/24     # RFC 5737 TEST-NET-1.
+    - 198.51.100.0/24  # RFC 5737 TEST-NET-2.
+    - 203.0.113.0/24   # RFC 5737 TEST-NET-3.
+    - 2001:db8::/32    # RFC 3849 IPv6 documentation space.
+    - 3fff::/20        # RFC 9637 IPv6 documentation space.
+    - fec0::/10        # Deprecated IPv6 site-local (RFC 3879); not covered by fe80::/10.
+    - 5f00::/16        # RFC 9602 SRv6 SIDs: a reply means local routing infrastructure.
+    - 64:ff9b:1::/48   # RFC 8215 local-use NAT64, disjoint from the well-known 64:ff9b::/96.
