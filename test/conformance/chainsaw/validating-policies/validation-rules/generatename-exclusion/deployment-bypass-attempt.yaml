@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  generateName: trusted-deployment-
+  labels:
+    app: evil
+    env: testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evil
+  template:
+    metadata:
+      labels:
+        app: evil
+    spec:
+      containers:
+      - name: evil
+        image: public.ecr.aws/docker/library/nginx:latest

@@ -293,6 +293,114 @@ func TestMatcher(t *testing.T) {
 			expectMatches: false,
 		},
 		{
+			name: "generateName matches in resourceRules when name is empty",
+			criteria: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					ResourceNames: []string{"deploy"},
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			attrs: admission.NewAttributesRecord(
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"generateName": "deploy-",
+						},
+					},
+				},
+				nil, gvk("apps", "v1", "Deployment"), "ns", "", gvr("apps", "v1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "generateName in excludeResourceRules does not exclude when name is empty",
+			criteria: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+				ExcludeResourceRules: []v1.NamedRuleWithOperations{{
+					ResourceNames: []string{"deploy"},
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			attrs: admission.NewAttributesRecord(
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"generateName": "deploy-",
+						},
+					},
+				},
+				nil, gvk("apps", "v1", "Deployment"), "ns", "", gvr("apps", "v1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "generateName prefix matching preserved in resourceRules",
+			criteria: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					ResourceNames: []string{"deploy"},
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			attrs: admission.NewAttributesRecord(
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"generateName": "deploy-attacker-",
+						},
+					},
+				},
+				nil, gvk("apps", "v1", "Deployment"), "ns", "", gvr("apps", "v1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "exact name in excludeResourceRules excludes",
+			criteria: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+				ExcludeResourceRules: []v1.NamedRuleWithOperations{{
+					ResourceNames: []string{"deploy"},
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			attrs: admission.NewAttributesRecord(
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"name": "deploy",
+						},
+					},
+				},
+				nil, gvk("apps", "v1", "Deployment"), "ns", "deploy", gvr("apps", "v1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: false,
+		},
+		{
 			name: "treat empty ResourceRules as match",
 			criteria: &v1.MatchResources{
 				NamespaceSelector: &metav1.LabelSelector{},
@@ -407,10 +515,13 @@ func TestMatcher(t *testing.T) {
 
 func Test_matchesResourceRules(t *testing.T) {
 	tests := []struct {
-		name         string
-		object       runtime.Object
-		resourceName string
-		expected     bool
+		name               string
+		operation          admission.Operation
+		attrName           string
+		object             runtime.Object
+		resourceName       string
+		allowGeneratedName bool
+		expected           bool
 	}{
 		{
 			name: "match using generateName prefix",
@@ -421,28 +532,307 @@ func Test_matchesResourceRules(t *testing.T) {
 					},
 				},
 			},
-			resourceName: "test-prefix",
-			expected:     true,
+			resourceName:       "test-prefix",
+			allowGeneratedName: true,
+			expected:           true,
 		},
 		{
-			name:         "no match when object is nil and name is empty",
-			object:       nil,
-			resourceName: "test-prefix",
-			expected:     false,
+			name:               "no match when object is nil and name is empty",
+			object:             nil,
+			resourceName:       "test-prefix",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name: "allow prefix match when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-malicious-pod-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "reject prefix match when allowGeneratedName is false (excludeResourceRules bypass prevention)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-malicious-pod-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: false,
+			expected:           false,
+		},
+		{
+			name: "allow substring prefix when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "testing-app-",
+					},
+				},
+			},
+			resourceName:       "test",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "reject generatedName match when allowGeneratedName is false (e.g. exclusion rules)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: false,
+			expected:           false,
+		},
+		{
+			name: "allow match when allowGeneratedName is true with exact delimiter prefix",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "reject when generateName is shorter than resourceName with trailing hyphen",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault",
+					},
+				},
+			},
+			resourceName:       "vault-",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name: "allow match when allowGeneratedName is true with trailing hyphen on both",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault-",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "allow match when allowGeneratedName is true with no trailing hyphen on either",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "allow multi-token prefix when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "app-prod-1-",
+					},
+				},
+			},
+			resourceName:       "app",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "reject empty generateName on empty attr name",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name: "reject empty matched resourceName",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name:               "direct name match on CREATE is accepted even if allowGeneratedName is false",
+			operation:          admission.Create,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault-instance-1",
+			allowGeneratedName: false,
+			expected:           true,
+		},
+		{
+			name:               "direct name match on CREATE is accepted when allowGeneratedName is true",
+			operation:          admission.Create,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault-instance-1",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name:               "direct name mismatch on CREATE is rejected",
+			operation:          admission.Create,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault",
+			allowGeneratedName: false,
+			expected:           false,
+		},
+		{
+			name:      "resolved name takes precedence over generateName on CREATE (matching resolved name)",
+			operation: admission.Create,
+			attrName:  "resolved-app",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "resolved-app",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name:      "resolved name controls matching on CREATE and non-matching resolved name rejects even if generateName matches",
+			operation: admission.Create,
+			attrName:  "other-app",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name:               "direct name match on UPDATE is accepted when allowGeneratedName is false (exclusion rules)",
+			operation:          admission.Update,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault-instance-1",
+			allowGeneratedName: false,
+			expected:           true,
+		},
+		{
+			name:               "direct name match on UPDATE is accepted when allowGeneratedName is true (selection rules)",
+			operation:          admission.Update,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault-instance-1",
+			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name:               "direct name mismatch on UPDATE is rejected",
+			operation:          admission.Update,
+			attrName:           "vault-instance-1",
+			object:             nil,
+			resourceName:       "vault",
+			allowGeneratedName: false,
+			expected:           false,
+		},
+		{
+			name:      "resolved name takes precedence over generateName on UPDATE (matching resolved name)",
+			operation: admission.Update,
+			attrName:  "vault-instance-1",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "unrelated-app-",
+					},
+				},
+			},
+			resourceName:       "vault-instance-1",
+			allowGeneratedName: false,
+			expected:           true,
+		},
+		{
+			name:      "resolved name controls matching on UPDATE and generateName is ignored",
+			operation: admission.Update,
+			attrName:  "other-app",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: true,
+			expected:           false,
+		},
+		{
+			name:      "empty name on UPDATE does not match exclusion rule via generateName",
+			operation: admission.Update,
+			attrName:  "",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: false,
+			expected:           false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			op := tt.operation
+			if op == "" {
+				op = admission.Create
+			}
+
 			attr := admission.NewAttributesRecord(
 				tt.object,
 				nil,
 				schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
-				"default", // namespace
-				"",        // name is empty to trigger generateName fallback
+				"default",   // namespace
+				tt.attrName, // name (empty triggers generateName fallback)
 				schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 				"", // subresource
-				admission.Create,
+				op,
 				nil,   // operationOptions
 				false, // dryRun
 				&user.DefaultInfo{Name: "test-user"},
@@ -451,7 +841,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			namedRules := []v1.NamedRuleWithOperations{
 				{
 					RuleWithOperations: v1.RuleWithOperations{
-						Operations: []v1.OperationType{"CREATE"},
+						Operations: []v1.OperationType{v1.OperationType(op)},
 						Rule: v1.Rule{
 							APIGroups:   []string{"*"},
 							APIVersions: []string{"*"},
@@ -462,7 +852,7 @@ func Test_matchesResourceRules(t *testing.T) {
 				},
 			}
 
-			match, err := matchesResourceRules(namedRules, attr)
+			match, err := matchesResourceRules(namedRules, attr, tt.allowGeneratedName)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, match)
 		})
