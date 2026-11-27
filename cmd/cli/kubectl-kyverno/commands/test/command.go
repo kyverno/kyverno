@@ -121,6 +121,9 @@ func testCommandExecute(
 		for _, e := range filterErrs {
 			fmt.Fprintln(out, "  "+color.BoldRed("Error:"), e)
 		}
+		// an invalid selector parses to an empty filter that matches every test, so stop
+		// here instead of running the whole suite unfiltered
+		return errors.Join(filterErrs...)
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
@@ -147,7 +150,7 @@ func testCommandExecute(
 			return fmt.Errorf("no tests found")
 		}
 
-		return errors.Join(filterErrs...)
+		return nil
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table
