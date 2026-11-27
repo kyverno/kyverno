@@ -3,7 +3,7 @@ package kube
 import (
 	"testing"
 
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apiextensions-api/pkg/client/clientset/clientset/fake"
 )
 
 // TestCRDsExist_AbsentIsNoOp verifies that when the named CRDs are not installed,
