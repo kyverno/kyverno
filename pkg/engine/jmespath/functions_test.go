@@ -1146,6 +1146,21 @@ func Test_ObjectFromLists(t *testing.T) {
 				"key2": nil,
 			},
 		},
+		{
+			keys:   `[100, 200]`,
+			values: `["val1", "val2"]`,
+			expectedResult: map[string]any{
+				"100": "val1",
+				"200": "val2",
+			},
+		},
+		{
+			keys:   `[123456789.987654]`,
+			values: `["float-val"]`,
+			expectedResult: map[string]any{
+				"123456789.987654": "float-val",
+			},
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1156,6 +1171,62 @@ func Test_ObjectFromLists(t *testing.T) {
 			result, ok := res.(map[string]any)
 			assert.Assert(t, ok)
 			assert.DeepEqual(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_ObjectFromLists_NumericKeyTypes(t *testing.T) {
+	testCases := []struct {
+		name        string
+		key         any
+		expectedKey string
+	}{
+		{"int", int(42), "42"},
+		{"int8", int8(42), "42"},
+		{"int16", int16(42), "42"},
+		{"int32", int32(42), "42"},
+		{"int64", int64(9876543210), "9876543210"},
+		{"uint", uint(42), "42"},
+		{"uint8", uint8(42), "42"},
+		{"uint16", uint16(42), "42"},
+		{"uint32", uint32(42), "42"},
+		{"uint64", uint64(9876543210), "9876543210"},
+		{"float64_precision", float64(123456789.987654), "123456789.987654"},
+		{"float32", float32(12.5), "12.5"},
+		{"bool", true, "true"},
+		{"string", "my-key", "my-key"},
+		{"json.Number", json.Number("12345678901234567890"), "12345678901234567890"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := jpObjectFromLists([]any{
+				[]any{tc.key},
+				[]any{"val"},
+			})
+			assert.NilError(t, err)
+			m, ok := res.(map[string]any)
+			assert.Assert(t, ok)
+			assert.Equal(t, m[tc.expectedKey], "val")
+		})
+	}
+
+	unsupportedKeys := []struct {
+		name string
+		key  any
+	}{
+		{"nil", nil},
+		{"slice", []any{"nested"}},
+		{"map", map[string]any{"foo": "bar"}},
+	}
+
+	for _, tc := range unsupportedKeys {
+		t.Run("unsupported_"+tc.name, func(t *testing.T) {
+			_, err := jpObjectFromLists([]any{
+				[]any{tc.key},
+				[]any{"val"},
+			})
+			assert.ErrorContains(t, err, "argument #1 is not of type StringArray")
 		})
 	}
 }
