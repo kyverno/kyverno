@@ -45,11 +45,16 @@ type resource struct {
 }
 
 func (f resource) Apply(result v1alpha1.TestResult) bool {
-	if len(result.Resources) == 0 {
+	if len(result.Resources) == 0 && len(result.ResourceSpecs) == 0 {
 		return true
 	}
 	for _, res := range result.Resources {
 		if wildcard.Match(f.value, res) {
+			return true
+		}
+	}
+	for _, spec := range result.ResourceSpecs {
+		if wildcard.Match(f.value, spec.Name) || wildcard.Match(f.value, spec.Namespace+"/"+spec.Name) {
 			return true
 		}
 	}
@@ -105,8 +110,11 @@ func ExtractResourceFilters(input string) []string {
 	if compositeFilter, ok := f.(composite); ok {
 		for _, subFilter := range compositeFilter.filters {
 			if resourceFilter, ok := subFilter.(resource); ok {
+				// A wildcard selects every resource, it must not discard the
+				// patterns that follow it: resource=*,resource=demo-* still
+				// constrains the resources to demo-*.
 				if resourceFilter.value == "*" {
-					break
+					continue
 				}
 				resourceFilters = append(resourceFilters, resourceFilter.value)
 			}

@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -158,15 +159,7 @@ func testCommandExecute(
 			}
 
 			// filter results
-			var filteredResults []v1alpha1.TestResult
-			for _, res := range test.Test.Results {
-				if filter.Apply(res) {
-					if len(resourceFilters) > 0 {
-						res.Resources = resourceFilters
-					}
-					filteredResults = append(filteredResults, res)
-				}
-			}
+			filteredResults := filterTestResults(test.Test.Results, filter, resourceFilters)
 			if len(filteredResults) == 0 {
 				continue
 			}
@@ -360,4 +353,68 @@ func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleRe
 func StripANSI(text string) string {
 	// Replace all matches of the ANSI escape code pattern with an empty string
 	return ansiRegex.ReplaceAllString(text, "")
+}
+
+// filterTestResults keeps the results the selector applies to.
+//
+// When the selector names resources, a result is narrowed to the resources it
+// declares that match one of the patterns, and dropped when none of them do.
+// Storing the patterns in place of the names they select would leave
+// printTestResult with nothing to match against the responses; it then falls
+// back to checking every resource, including the ones the selector excluded.
+// The resources can be declared by name or by spec, and both forms are narrowed
+// here because printTestResult resolves the specs after this point.
+func filterTestResults(results []v1alpha1.TestResult, selector filter.Filter, resourceFilters []string) []v1alpha1.TestResult {
+	var filtered []v1alpha1.TestResult
+	for _, res := range results {
+		if !selector.Apply(res) {
+			continue
+		}
+		if len(resourceFilters) > 0 {
+			declared := len(res.Resources) > 0 || len(res.ResourceSpecs) > 0
+			res.Resources = narrowResources(res.Resources, resourceFilters)
+			res.ResourceSpecs = narrowResourceSpecs(res.ResourceSpecs, resourceFilters)
+			if declared && len(res.Resources) == 0 && len(res.ResourceSpecs) == 0 {
+				continue
+			}
+		}
+		filtered = append(filtered, res)
+	}
+	return filtered
+}
+
+// narrowResources returns the resources a test result declares that match one of
+// the selector patterns.
+func narrowResources(declared, patterns []string) []string {
+	var matched []string
+	for _, resource := range declared {
+		if matchesResourcePattern(resource, patterns) {
+			matched = append(matched, resource)
+		}
+	}
+	return matched
+}
+
+// narrowResourceSpecs returns the resource specs a test result declares that
+// match one of the selector patterns.
+func narrowResourceSpecs(declared []v1alpha1.TestResourceSpec, patterns []string) []v1alpha1.TestResourceSpec {
+	var matched []v1alpha1.TestResourceSpec
+	for _, spec := range declared {
+		if matchesResourcePattern(spec.Name, patterns) ||
+			matchesResourcePattern(spec.Namespace+"/"+spec.Name, patterns) {
+			matched = append(matched, spec)
+		}
+	}
+	return matched
+}
+
+// matchesResourcePattern reports whether one of the patterns selects the given
+// resource name, using the same wildcard matching as the selector itself.
+func matchesResourcePattern(resource string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if wildcard.Match(pattern, resource) {
+			return true
+		}
+	}
+	return false
 }

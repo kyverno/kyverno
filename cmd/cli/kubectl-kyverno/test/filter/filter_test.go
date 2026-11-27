@@ -187,6 +187,33 @@ func Test_resource_Apply(t *testing.T) {
 			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "bad-deployment-01")},
 		},
 		want: false,
+	}, {
+		name:  "resource spec matches by name",
+		value: "demo-*",
+		result: v1alpha1.TestResult{
+			TestResultData: v1alpha1.TestResultData{ResourceSpecs: []v1alpha1.TestResourceSpec{
+				{Version: "v1", Kind: "ConfigMap", Namespace: "default", Name: "demo-blue"},
+			}},
+		},
+		want: true,
+	}, {
+		name:  "resource spec matches by namespace and name",
+		value: "demo/blue",
+		result: v1alpha1.TestResult{
+			TestResultData: v1alpha1.TestResultData{ResourceSpecs: []v1alpha1.TestResourceSpec{
+				{Version: "v1", Kind: "ConfigMap", Namespace: "demo", Name: "blue"},
+			}},
+		},
+		want: true,
+	}, {
+		name:  "resource spec does not match",
+		value: "demo-*",
+		result: v1alpha1.TestResult{
+			TestResultData: v1alpha1.TestResultData{ResourceSpecs: []v1alpha1.TestResourceSpec{
+				{Version: "v1", Kind: "ConfigMap", Namespace: "default", Name: "draft-gray"},
+			}},
+		},
+		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
