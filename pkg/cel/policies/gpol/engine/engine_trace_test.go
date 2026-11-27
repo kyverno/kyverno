@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -55,6 +56,11 @@ func TestHandle_Tracing(t *testing.T) {
 			},
 		}
 	}
+	withPriority := func(ex *v1beta1.PolicyException, name, priority string) *v1beta1.PolicyException {
+		ex.Name = name
+		ex.Labels = map[string]string{reportutils.LabelPolicyExceptionPriority: priority}
+		return ex
+	}
 	tests := []struct {
 		name        string
 		policy      *v1beta1.GeneratingPolicy
@@ -97,6 +103,14 @@ func TestHandle_Tracing(t *testing.T) {
 		wantApplied: true,
 		wantStatus:  trace.VerdictPass,
 		wantMessage: "rule is passed due to policy exception: default/polex",
+	}, {
+		name:        "the highest negative priority exception decides",
+		policy:      newPolicy("namespaces"),
+		exceptions:  []*v1beta1.PolicyException{withPriority(exception(""), "low", "-10"), withPriority(exception(string(engineapi.RuleStatusPass)), "high", "-5")},
+		wantRule:    engineapi.RuleStatusPass,
+		wantApplied: true,
+		wantStatus:  trace.VerdictPass,
+		wantMessage: "rule is passed due to policy exception: default/low, default/high",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
