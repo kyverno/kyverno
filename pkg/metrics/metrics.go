@@ -50,6 +50,7 @@ type MetricsConfig struct {
 	httpMetrics          *httpMetrics
 	vpolMetrics          *validatingMetrics
 	ivpolMetrics         *imageValidatingMetrics
+	datacacheMetrics     *imageDataCacheMetrics
 	mpolMetrics          *mutatingMetrics
 	gpolMetrics          *generatingMetrics
 	globalContextMetrics *globalContextMetrics
@@ -74,6 +75,7 @@ type MetricsConfigManager interface {
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
+	ImageDataCacheMetrics() ImageDataCacheMetrics
 	MPOLMetrics() MutatingMetrics
 	GPOLMetrics() GeneratingMetrics
 	GlobalContextMetrics() GlobalContextMetrics
@@ -131,6 +133,10 @@ func (m *MetricsConfig) IVPOLMetrics() ImageValidatingMetrics {
 	return m.ivpolMetrics
 }
 
+func (m *MetricsConfig) ImageDataCacheMetrics() ImageDataCacheMetrics {
+	return m.datacacheMetrics
+}
+
 func (m *MetricsConfig) MPOLMetrics() MutatingMetrics {
 	return m.mpolMetrics
 }
@@ -175,6 +181,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
+	m.datacacheMetrics.init(meter)
 	m.mpolMetrics.init(meter)
 	m.gpolMetrics.init(meter)
 	m.globalContextMetrics.init(meter)
@@ -326,6 +333,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
 		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
+		datacacheMetrics:     &imageDataCacheMetrics{logger: logger.WithName("image-data-cache")},
 		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
 		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
 		globalContextMetrics: &globalContextMetrics{logger: logger.WithName("global-context")},
