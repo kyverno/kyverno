@@ -925,7 +925,7 @@ $(KUBECTL_EVICT):
 	@GOBIN=$(TOOLS_DIR) go install github.com/ueokande/kubectl-evict@latest
 
 .PHONY: test-e2e-local
-test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conformance suite like CI (SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>])
+test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conformance suite like CI (SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>] [E2E_REPORT_DIR=<dir>])
 	@VARIANT='$(VARIANT)' ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)'
 	@command -v chainsaw > /dev/null || { echo 'Install chainsaw first: https://kyverno.github.io/chainsaw/latest/quick-start/install/' >&2; exit 1; }
 	$(if $(filter true,$(call E2E_SETTING,install-kubectl-evict)),@$(MAKE) $(KUBECTL_EVICT))
@@ -935,7 +935,8 @@ test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conf
 	@$(MAKE) kind-deploy-kyverno KIND_VERSION='$(call E2E_SETTING,kind-version)' USE_CONFIG='$(call E2E_SETTING,kyverno-configs)' EXPLICIT_INSTALL_SETTINGS='$(call E2E_SETTING,explicit-install-settings)'
 	kubectl apply --server-side --force-conflicts -R -f ./config/crds
 	kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s
-	cd ./test/conformance/chainsaw/$(SUITE) && PATH="$(TOOLS_DIR):$$PATH" chainsaw test --config .chainsaw.yaml --include-test-regex '^chainsaw$$/$(TEST)'
+	cd ./test/conformance/chainsaw/$(SUITE) && PATH="$(TOOLS_DIR):$$PATH" chainsaw test --config .chainsaw.yaml --include-test-regex '^chainsaw$$/$(TEST)' \
+		$(if $(E2E_REPORT_DIR),--report-format JSON --report-path '$(abspath $(E2E_REPORT_DIR))' --report-name results)
 
 #############
 # CLI TESTS #
