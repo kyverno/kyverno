@@ -46,6 +46,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -192,6 +193,21 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+					// only record responses that carry a rule: a rule-less response
+					// would be reported as "excluded" instead of a failure
+					if len(mutateResponse.PolicyResponse.Rules) > 0 {
+						// another binding may have patched the resource even though this
+						// one failed, so report that mutation instead of only counting it
+						if mutationApplied(mutateResponse, resource) {
+							if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+								log.Log.Error(err, "failed to log MAP mutation")
+							}
+							resource = mutateResponse.PatchedResource
+						} else {
+							p.Rc.addMutateResponse(mutateResponse)
+						}
+						responses = append(responses, mutateResponse)
+					}
 					continue
 				}
 				if mutateResponse.IsEmpty() {
@@ -472,7 +488,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			for _, param := range p.ParameterResources {
 				policyData.AddParam(param)
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
+			validateResponse, err := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
+			if err != nil {
+				log.Log.Error(err, "failed to apply VAP", "policy", policy.Name)
+			}
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
@@ -806,6 +825,27 @@ func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineRespo
 		fmt.Fprintf(p.Out, "\n\nGenerate:\nGeneration completed successfully.")
 	}
 	return nil
+}
+
+// hasPassRule reports whether a mutation response carries a rule that applied
+// mutations.
+func hasPassRule(response engineapi.EngineResponse) bool {
+	for _, rule := range response.PolicyResponse.Rules {
+		if rule.Status() == engineapi.RuleStatusPass {
+			return true
+		}
+	}
+	return false
+}
+
+// mutationApplied reports whether a response carries a mutation worth writing out.
+// PatchedResource defaults to the incoming resource, so an error-only response
+// looks patched; a pass rule or a changed object is what tells them apart.
+func mutationApplied(response engineapi.EngineResponse, original unstructured.Unstructured) bool {
+	if hasPassRule(response) {
+		return true
+	}
+	return !equality.Semantic.DeepEqual(original.Object, response.PatchedResource.Object)
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {

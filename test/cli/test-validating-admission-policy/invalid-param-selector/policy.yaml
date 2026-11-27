@@ -1,0 +1,61 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: replica-limit
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments"]
+  validations:
+    # deliberately independent of params: without the fix the binding matches no
+    # parameter and this passes, so the fixture can only report "error" when the
+    # invalid selector is actually surfaced
+    - expression: "object.spec.replicas > 0"
+      message: "Replicas must be positive"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: replica-limit
+spec:
+  policyName: replica-limit
+  validationActions: [Deny]
+  paramRef:
+    selector:
+      matchExpressions:
+        - key: env
+          operator: Bogus
+          values: ["prod"]
+---
+# a valid sibling policy: the selector error above must not stop it from
+# being evaluated
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: replicas-positive
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments"]
+  validations:
+    - expression: "object.spec.replicas > 0"
+      message: "Replicas must be positive"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: replicas-positive
+spec:
+  policyName: replicas-positive
+  validationActions: [Deny]
