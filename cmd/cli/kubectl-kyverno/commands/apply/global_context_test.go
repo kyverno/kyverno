@@ -475,7 +475,7 @@ spec:
 				PolicyPaths:   tt.policyPaths,
 				ResourcePaths: tt.resourcePaths,
 			}
-			rc, _, responses, _, err := cfg.applyCommandHelper(context.Background(), io.Discard)
+			rc, _, _, responses, err := cfg.applyCommandHelper(context.Background(), io.Discard)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantPass, rc.Pass)
 			assert.Equal(t, tt.wantFail, rc.Fail)
