@@ -1,0 +1,50 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+- policy-required.yaml
+resources:
+- resources.yaml
+results:
+- isImageValidatingPolicy: true
+  kind: Deployment
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - untrusted-volume-deployment
+  result: fail
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - untrusted-volume
+  result: fail
+- isImageValidatingPolicy: true
+  kind: Deployment
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - trusted-volume-deployment
+  result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - trusted-volume
+  - no-image-volume
+  - null-volumes
+  result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-required
+  resources:
+  - untrusted-volume
+  result: fail
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-required
+  resources:
+  - trusted-volume
+  - no-image-volume
+  - null-volumes
+  result: pass

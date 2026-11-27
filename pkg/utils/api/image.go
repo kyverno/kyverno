@@ -131,7 +131,7 @@ func extract(
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
-	extractors := make([]imageExtractor, 0, 3)
+	extractors := make([]imageExtractor, 0, 4)
 	for _, tag := range []string{"initContainers", "containers", "ephemeralContainers"} {
 		t := make([]string, 0, len(tags)+1+1)
 		t = append(t, tags...)
@@ -139,6 +139,15 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 		t = append(t, "*")
 		extractors = append(extractors, imageExtractor{Fields: t, Key: "name", Value: "image", Name: tag})
 	}
+	// Image volumes (spec.volumes[*].image.reference) are pulled from a registry like
+	// container images, and the workload reads their files. The reference sits one
+	// level below the volume, so the extractor descends into `image` and reads
+	// `reference`, keyed by its JSON pointer since `image` carries no name. Volumes
+	// without an `image` field are skipped.
+	v := make([]string, 0, len(tags)+3)
+	v = append(v, tags...)
+	v = append(v, "volumes", "*", "image")
+	extractors = append(extractors, imageExtractor{Fields: v, Key: "", Value: "reference", Name: "imageVolumes"})
 	return extractors
 }
 
