@@ -6,6 +6,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -20,6 +22,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// collectUniqueCheckResponses collects default engine evaluations in a stable order.
+// runTest stores each default evaluation once in Trigger. Target is only a
+// secondary index of those evaluations and TriggerByOperation, not a separate
+// evaluation source. Iterating Target would duplicate checks and could include
+// explicit-operation evaluations. Collecting from Trigger also avoids relying
+// on the backing-array addresses of copied rule slices.
+func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineResponse {
+	var collected []engineapi.EngineResponse
+	for _, key := range slices.Sorted(maps.Keys(responses.Trigger)) {
+		for _, response := range responses.Trigger[key] {
+			if len(response.PolicyResponse.Rules) > 0 {
+				collected = append(collected, response)
+			}
+		}
+	}
+	return collected
+}
+
 func printCheckResult(
 	checks []v1alpha1.CheckResult,
 	responses TestResponse,
@@ -27,13 +47,16 @@ func printCheckResult(
 	resultsTable *table.Table,
 ) error {
 	ctx := context.Background()
-	testCount := 1
-	for _, check := range checks {
-		// filter engine responses
-		var matchingEngineResponses []engineapi.EngineResponse
-		for _, engineresponses := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
+	for i, check := range checks {
+		if (check.Assert.Value == nil) && (check.Error.Value == nil) {
+			return fmt.Errorf("checks[%d]: at least one of assert or error must be specified", i)
 		}
+	}
+	testCount := len(resultsTable.RawRows) + 1
+	allEngineResponses := collectUniqueCheckResponses(responses)
+	for _, check := range checks {
+		// Each check may filter the response slice independently.
+		matchingEngineResponses := allEngineResponses
 		// 1. by resource
 		if check.Match.Resource != nil {
 			var filtered []engineapi.EngineResponse
@@ -52,7 +75,11 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+				policy := response.Policy()
+				if policy == nil {
+					continue
+				}
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy.AsObject())
 				if err != nil {
 					return err
 				}
@@ -85,6 +112,10 @@ func printCheckResult(
 				}
 				matchingRuleResponses = filtered
 			}
+			policyName := ""
+			if policy := response.Policy(); policy != nil {
+				policyName = policy.GetName()
+			}
 			for _, rule := range matchingRuleResponses {
 				// perform check
 				data := map[string]any{
@@ -92,13 +123,31 @@ func printCheckResult(
 					"ruleType": rule.RuleType(),
 					"message":  rule.Message(),
 					"status":   string(rule.Status()),
-					// generatedResource unstructured.Unstructured
-					// patchedTarget *unstructured.Unstructured
-					// patchedTargetParentResourceGVR metav1.GroupVersionResource
-					// patchedTargetSubresourceName string
+					// Generated resource and patched-target data are added below when available.
 					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exceptions":        rule.Exceptions(),
+				}
+				generatedResources := make([]any, 0, len(rule.GeneratedResources()))
+				for _, generated := range rule.GeneratedResources() {
+					if generated != nil {
+						generatedResources = append(generatedResources, generated.UnstructuredContent())
+					}
+				}
+				if len(generatedResources) > 0 {
+					// Preserve the singular field as the first generated resource while exposing all
+					// generated resources in their engine order for multi-resource rules.
+					data["generatedResource"] = generatedResources[0]
+					data["generatedResources"] = generatedResources
+				}
+				if patchedTarget, parentResourceGVR, subresourceName := rule.PatchedTarget(); patchedTarget != nil {
+					data["patchedTarget"] = patchedTarget.UnstructuredContent()
+					data["patchedTargetParentResourceGVR"] = map[string]any{
+						"group":    parentResourceGVR.Group,
+						"version":  parentResourceGVR.Version,
+						"resource": parentResourceGVR.Resource,
+					}
+					data["patchedTargetSubresourceName"] = subresourceName
 				}
 				if check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
@@ -108,7 +157,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) != 0,
@@ -139,10 +188,10 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
+							IsFailure: len(errs) == 0,
 						},
 						Message: rule.Message(),
 					}
