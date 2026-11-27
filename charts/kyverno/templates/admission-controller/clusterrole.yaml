@@ -130,6 +130,22 @@ rules:
       - update
       - watch
       - deletecollection
+  # AuthorizingPolicy is cluster-admin-equivalent; Kyverno only reads it and writes its status.
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - authorizingpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - authorizingpolicies/status
+    verbs:
+      - patch
+      - update
   - apiGroups:
       - policies.kyverno.io
     resources:

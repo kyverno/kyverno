@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"

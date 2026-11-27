@@ -106,6 +106,12 @@ const (
 	MutatingWebhookServicePath = "/mutate"
 	// VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
+	// AuthorizingPolicySubjectAccessReviewPath serves authorization.k8s.io/v1 SubjectAccessReview requests
+	AuthorizingPolicySubjectAccessReviewPath = "/authz/subjectaccessreview"
+	// AuthorizingPolicyConditionsReviewPath serves authorization.k8s.io/v1alpha1 AuthorizationConditionsReview requests
+	AuthorizingPolicyConditionsReviewPath = "/authz/conditionsreview"
+	// AuthorizingPolicyCombinedPath serves both authorization kinds and dispatches on TypeMeta
+	AuthorizingPolicyCombinedPath = "/authz"
 	// LivenessServicePath is the path for check liveness health
 	LivenessServicePath = "/health/liveness"
 	// ReadinessServicePath is the path for check readness health

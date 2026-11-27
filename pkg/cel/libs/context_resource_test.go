@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/stretchr/testify/assert"

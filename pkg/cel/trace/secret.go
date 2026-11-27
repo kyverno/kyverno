@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	celast "github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types"
+	celast "cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/types"
 )
 
 // Inputs says what an expression reads, as far as hiding Secret data needs to know. Build fills

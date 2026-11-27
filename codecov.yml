@@ -3,3 +3,6 @@ ignore:
 - docs
 - hack
 - litmuschaos
+# Generated client wrappers (pkg/clients/**/*.generated.go, from
+# make codegen-client-wrappers) are excluded: they carry no hand-written logic.
+- "**/*.generated.go"

@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -1375,6 +1376,22 @@ func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
+}
+
+func Test_RunTestRejectsAuthorizingPolicy(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-authorizing-policy", "unsupported")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, policy.ErrUnsupportedPolicyKind)
+	assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1 AuthorizingPolicy")
 }
 
 func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {

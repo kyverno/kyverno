@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-lifecycle
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-ttl-user", "chainsaw-ttl-control"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create"]
+  rules:
+    - name: owner-creates
+      effect: Allow
+      expression: "has(object.metadata.labels) && object.metadata.labels['owner'] == request.user"

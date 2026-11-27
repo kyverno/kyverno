@@ -12,6 +12,7 @@ import (
 	authenticationv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/authenticationv1alpha1"
 	authenticationv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/authenticationv1beta1"
 	authorizationv1 "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1"
+	authorizationv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1alpha1"
 	authorizationv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1beta1"
 	autoscalingv1 "github.com/kyverno/kyverno/pkg/clients/kube/autoscalingv1"
 	autoscalingv2 "github.com/kyverno/kyverno/pkg/clients/kube/autoscalingv2"
@@ -72,6 +73,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_authentication_v1alpha1 "k8s.io/client-go/kubernetes/typed/authentication/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_authentication_v1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 	k8s_io_client_go_kubernetes_typed_authorization_v1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	k8s_io_client_go_kubernetes_typed_authorization_v1alpha1 "k8s.io/client-go/kubernetes/typed/authorization/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_authorization_v1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	k8s_io_client_go_kubernetes_typed_autoscaling_v1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	k8s_io_client_go_kubernetes_typed_autoscaling_v2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
@@ -130,6 +132,7 @@ type clientset struct {
 	authenticationv1alpha1        k8s_io_client_go_kubernetes_typed_authentication_v1alpha1.AuthenticationV1alpha1Interface
 	authenticationv1beta1         k8s_io_client_go_kubernetes_typed_authentication_v1beta1.AuthenticationV1beta1Interface
 	authorizationv1               k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface
+	authorizationv1alpha1         k8s_io_client_go_kubernetes_typed_authorization_v1alpha1.AuthorizationV1alpha1Interface
 	authorizationv1beta1          k8s_io_client_go_kubernetes_typed_authorization_v1beta1.AuthorizationV1beta1Interface
 	autoscalingv1                 k8s_io_client_go_kubernetes_typed_autoscaling_v1.AutoscalingV1Interface
 	autoscalingv2                 k8s_io_client_go_kubernetes_typed_autoscaling_v2.AutoscalingV2Interface
@@ -209,6 +212,9 @@ func (c *clientset) AuthenticationV1beta1() k8s_io_client_go_kubernetes_typed_au
 }
 func (c *clientset) AuthorizationV1() k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface {
 	return c.authorizationv1
+}
+func (c *clientset) AuthorizationV1alpha1() k8s_io_client_go_kubernetes_typed_authorization_v1alpha1.AuthorizationV1alpha1Interface {
+	return c.authorizationv1alpha1
 }
 func (c *clientset) AuthorizationV1beta1() k8s_io_client_go_kubernetes_typed_authorization_v1beta1.AuthorizationV1beta1Interface {
 	return c.authorizationv1beta1
@@ -359,6 +365,7 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		authenticationv1alpha1:        authenticationv1alpha1.WithMetrics(inner.AuthenticationV1alpha1(), m, clientType),
 		authenticationv1beta1:         authenticationv1beta1.WithMetrics(inner.AuthenticationV1beta1(), m, clientType),
 		authorizationv1:               authorizationv1.WithMetrics(inner.AuthorizationV1(), m, clientType),
+		authorizationv1alpha1:         authorizationv1alpha1.WithMetrics(inner.AuthorizationV1alpha1(), m, clientType),
 		authorizationv1beta1:          authorizationv1beta1.WithMetrics(inner.AuthorizationV1beta1(), m, clientType),
 		autoscalingv1:                 autoscalingv1.WithMetrics(inner.AutoscalingV1(), m, clientType),
 		autoscalingv2:                 autoscalingv2.WithMetrics(inner.AutoscalingV2(), m, clientType),
@@ -420,6 +427,7 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		authenticationv1alpha1:        authenticationv1alpha1.WithTracing(inner.AuthenticationV1alpha1(), "AuthenticationV1alpha1"),
 		authenticationv1beta1:         authenticationv1beta1.WithTracing(inner.AuthenticationV1beta1(), "AuthenticationV1beta1"),
 		authorizationv1:               authorizationv1.WithTracing(inner.AuthorizationV1(), "AuthorizationV1"),
+		authorizationv1alpha1:         authorizationv1alpha1.WithTracing(inner.AuthorizationV1alpha1(), "AuthorizationV1alpha1"),
 		authorizationv1beta1:          authorizationv1beta1.WithTracing(inner.AuthorizationV1beta1(), "AuthorizationV1beta1"),
 		autoscalingv1:                 autoscalingv1.WithTracing(inner.AutoscalingV1(), "AutoscalingV1"),
 		autoscalingv2:                 autoscalingv2.WithTracing(inner.AutoscalingV2(), "AutoscalingV2"),
@@ -481,6 +489,7 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		authenticationv1alpha1:        authenticationv1alpha1.WithLogging(inner.AuthenticationV1alpha1(), logger.WithValues("group", "AuthenticationV1alpha1")),
 		authenticationv1beta1:         authenticationv1beta1.WithLogging(inner.AuthenticationV1beta1(), logger.WithValues("group", "AuthenticationV1beta1")),
 		authorizationv1:               authorizationv1.WithLogging(inner.AuthorizationV1(), logger.WithValues("group", "AuthorizationV1")),
+		authorizationv1alpha1:         authorizationv1alpha1.WithLogging(inner.AuthorizationV1alpha1(), logger.WithValues("group", "AuthorizationV1alpha1")),
 		authorizationv1beta1:          authorizationv1beta1.WithLogging(inner.AuthorizationV1beta1(), logger.WithValues("group", "AuthorizationV1beta1")),
 		autoscalingv1:                 autoscalingv1.WithLogging(inner.AutoscalingV1(), logger.WithValues("group", "AutoscalingV1")),
 		autoscalingv2:                 autoscalingv2.WithLogging(inner.AutoscalingV2(), logger.WithValues("group", "AutoscalingV2")),

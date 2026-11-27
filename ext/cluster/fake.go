@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/playground/backend/data"
 	"github.com/kyverno/playground/backend/pkg/resource"
 	"github.com/kyverno/playground/backend/pkg/utils"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-api/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

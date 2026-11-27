@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -1237,7 +1238,7 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 					}
 				}
 				if err != nil {
-					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+					if pkgdeprecations.IsLegacyPolicyBlockError(err) || errors.Is(err, policy.ErrUnsupportedPolicyKind) {
 						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 					}
 					continue
@@ -1263,7 +1264,9 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 				}
 			}
-			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			// Unsupported policy kinds fail the run like legacy kinds, so they are never
+			// reported as "0 policy rule(s)" applied.
+			if err != nil && (pkgdeprecations.IsLegacyPolicyBlockError(err) || errors.Is(err, policy.ErrUnsupportedPolicyKind)) {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {

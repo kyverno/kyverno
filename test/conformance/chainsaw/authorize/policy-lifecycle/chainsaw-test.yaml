@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-policy-lifecycle
+spec:
+  description: >-
+    Policy updates and deletions between the authorization phase and the
+    conditions callback. chainsaw-ttl-user is served by the kyverno-cached
+    webhook, which caches conditional decisions for 120s, so its later
+    requests reuse an authorization-time decision while the policy changes.
+    The callback evaluates that decision snapshot, not the current policy:
+    updates and deletions are not applied immediately to a cached decision,
+    and the snapshot's conditions are still enforced. chainsaw-ttl-control is
+    served by the uncached kyverno webhook and sees each change on its next
+    request. The whole test must finish within the 120s cache TTL.
+  concurrent: false
+  steps:
+    - name: create policy
+      try:
+        - apply:
+            file: policy.yaml
+    - name: update and delete between phases
+      try:
+        - script:
+            timeout: 100s
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              ns=$NAMESPACE
+              ttl=$(configmap ttl owner=chainsaw-ttl-user | tofile)
+              ttl_bad=$(configmap ttl-bad owner=someone-else | tofile)
+              ctl=$(configmap ctl owner=chainsaw-ttl-control | tofile)
+              ctl_ok=$(configmap ctl-ok owner=chainsaw-ttl-control approved=true | tofile)
+              start=$(date +%s)
+              # Phase 1 for chainsaw-ttl-user: the conditional decision is cached.
+              expect_allowed "ttl user: conditional create" \
+                kubectl -n "$ns" create --dry-run=server -f "$ttl" --as chainsaw-ttl-user
+              expect_allowed "control user: conditional create" \
+                kubectl -n "$ns" create --dry-run=server -f "$ctl" --as chainsaw-ttl-control
+
+              # Tighten the policy: creates now also need approved=true.
+              kubectl patch authorizingpolicy chainsaw-lifecycle --type=json -p '[{"op":"replace","path":"/spec/rules/0/expression","value":"has(object.metadata.labels) && object.metadata.labels[\"owner\"] == request.user && \"approved\" in object.metadata.labels"}]'
+              expect_eventually_forbidden "control user: update applies to the next request" \
+                kubectl -n "$ns" create --dry-run=server -f "$ctl" --as chainsaw-ttl-control
+              expect_allowed "control user: the updated policy allows an approved configmap" \
+                kubectl -n "$ns" create --dry-run=server -f "$ctl_ok" --as chainsaw-ttl-control
+              expect_allowed "ttl user: the cached decision snapshot (pre-update conditions) still decides" \
+                kubectl -n "$ns" create --dry-run=server -f "$ttl" --as chainsaw-ttl-user
+              expect_forbidden "ttl user: the snapshot's conditions are still enforced" \
+                kubectl -n "$ns" create --dry-run=server -f "$ttl_bad" --as chainsaw-ttl-user
+
+              # Delete the policy.
+              kubectl delete authorizingpolicy chainsaw-lifecycle
+              expect_eventually_forbidden "control user: deletion applies to the next request" \
+                kubectl -n "$ns" create --dry-run=server -f "$ctl_ok" --as chainsaw-ttl-control
+              expect_allowed "ttl user: deletion does not revoke a cached conditional decision before its TTL" \
+                kubectl -n "$ns" create --dry-run=server -f "$ttl" --as chainsaw-ttl-user
+              expect_forbidden "ttl user: the snapshot's conditions are still enforced after deletion" \
+                kubectl -n "$ns" create --dry-run=server -f "$ttl_bad" --as chainsaw-ttl-user
+              elapsed=$(( $(date +%s) - start ))
+              echo "elapsed ${elapsed}s (cache TTL 120s)"
+              test "$elapsed" -lt 110

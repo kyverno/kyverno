@@ -3,8 +3,8 @@ package compiler
 import (
 	"testing"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
@@ -97,7 +97,7 @@ func TestCompileMatchConditions(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[0].expression",
 			BadValue: `foo()`,
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo'\n | foo()\n | ...^",
 		}},
 	}, {
 		name: "single",
@@ -164,7 +164,7 @@ func TestCompileValidation(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "expression",
 			BadValue: "foo()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo'\n | foo()\n | ...^",
 		}},
 	}, {
 		name: "invalid",
@@ -218,7 +218,7 @@ func TestCompileValidation(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "messageExpression",
 			BadValue: "foo()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo'\n | foo()\n | ...^",
 		}},
 	}}
 	for _, tt := range tests {
@@ -271,7 +271,7 @@ func TestCompileAuditAnnotation(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "valueExpression",
 			BadValue: "foo()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo'\n | foo()\n | ...^",
 		}},
 	}, {
 		name: "valid",
@@ -337,7 +337,7 @@ func TestCompileAuditAnnotations(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[1].valueExpression",
 			BadValue: "bar()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar'\n | bar()\n | ...^",
 		}},
 	}}
 	for _, tt := range tests {
@@ -422,7 +422,7 @@ func TestCompileVariables(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[1].expression",
 			BadValue: "bar()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar'\n | bar()\n | ...^",
 		}},
 	}}
 	for _, tt := range tests {
@@ -470,7 +470,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "test.expression",
 			BadValue: "bar()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar'\n | bar()\n | ...^",
 		}},
 	}, {
 		name: "cel not bool",
@@ -546,7 +546,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[1].expression",
 			BadValue: "bar()",
-			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar'\n | bar()\n | ...^",
 		}},
 	}, {
 		name: "not bool",
@@ -673,7 +673,7 @@ generator.applyAll(
 		},
 	]
 )`,
-			Detail: "ERROR: <input>:2:19: undeclared reference to 'applyAll' (in container '')\n | generator.applyAll(\n | ..................^",
+			Detail: "ERROR: <input>:2:19: undeclared reference to 'applyAll'\n | generator.applyAll(\n | ..................^",
 		}},
 	}, {
 		name: "multiple invalid",

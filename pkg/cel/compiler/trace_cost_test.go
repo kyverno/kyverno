@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,10 +82,11 @@ func TestTracedCompilation_DecidingProgramKeepsCostLimit(t *testing.T) {
 				assert.Nil(t, details.State(), "the deciding program must not track state")
 			}
 
-			// documents why the twin must never decide: it runs past the limit
-			out, _, err := c.traced.ContextEval(context.Background(), map[string]any{})
-			require.NoError(t, err)
-			assert.Equal(t, true, out.Value())
+			// cel-go v0.31 and earlier disabled cost-limit enforcement under state tracking, so the
+			// twin ran past the limit. cel.dev/cel-go v0.33 enforces the limit with state tracking
+			// too; the twin still must never decide, but it now stops at the limit as well.
+			_, _, err = c.traced.ContextEval(context.Background(), map[string]any{})
+			require.Error(t, err, "cel.dev/cel-go v0.33 enforces the cost limit under state tracking")
 		})
 	}
 }

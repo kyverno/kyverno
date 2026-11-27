@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-unconditional-caller
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-legacy-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create", "list"]
+  rules:
+    - name: list
+      effect: Allow
+      expression: "request.resourceAttributes.verb == 'list'"
+    - name: owner-creates
+      effect: Allow
+      expression: "request.resourceAttributes.verb == 'create' && has(object.metadata.labels) && object.metadata.labels['owner'] == request.user"
+    - name: no-protected
+      effect: Deny
+      expression: "request.resourceAttributes.verb == 'create' && has(object.metadata.labels) && 'protected' in object.metadata.labels"

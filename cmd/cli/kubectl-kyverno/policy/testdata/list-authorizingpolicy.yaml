@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: AuthorizingPolicy
+    metadata:
+      name: owner-writes
+    spec:
+      rules:
+        - name: deny-all
+          effect: Deny
+          expression: "true"

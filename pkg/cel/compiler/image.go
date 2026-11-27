@@ -3,8 +3,8 @@ package compiler
 import (
 	"context"
 
+	"cel.dev/cel-go/cel"
 	"github.com/gobwas/glob"
-	"github.com/google/cel-go/cel"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 )
 
