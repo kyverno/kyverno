@@ -1,0 +1,117 @@
+# Two schemas sharing one route, selected by the /eventType discriminator.
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PayloadSchema
+metadata:
+  name: build-event-v1
+spec:
+  dialect: JSONSchema202012SubsetV1
+  compatibilityVersion: "1"
+  schema:
+    type: object
+    required: [eventType, repository, artifacts]
+    additionalProperties: false
+    properties:
+      eventType: {type: string, enum: [build.completed]}
+      repository: {type: string, maxLength: 512}
+      artifacts:
+        type: array
+        maxItems: 200
+        items:
+          type: object
+          required: [name, size]
+          additionalProperties: false
+          properties:
+            name: {type: string, maxLength: 256}
+            size: {type: integer, minimum: 0}
+  match:
+    discriminators:
+      - {pointer: /eventType, equals: build.completed}
+    requiredPaths: [/repository, /artifacts]
+  computed:
+    - name: largestArtifact
+      expression: >-
+        size(object.artifacts) == 0 ? 0 : math.greatest(object.artifacts.map(a, a.size))
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PayloadSchema
+metadata:
+  name: deploy-event-v1
+spec:
+  dialect: JSONSchema202012SubsetV1
+  compatibilityVersion: "1"
+  schema:
+    type: object
+    required: [eventType, environment, image]
+    additionalProperties: false
+    properties:
+      eventType: {type: string, enum: [deploy.requested]}
+      environment: {type: string, enum: [dev, staging, prod]}
+      image: {type: string, maxLength: 512}
+      approvedBy: {type: string, maxLength: 128}
+      internalNote: {type: string, maxLength: 1024}
+  match:
+    discriminators:
+      - {pointer: /eventType, equals: deploy.requested}
+    requiredPaths: [/environment, /image]
+  exposure:
+    include: ["/**"]
+    exclude: ["/internalNote"]
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: build-size-limit
+spec:
+  evaluation:
+    mode: Schema
+    schemaRef: {name: build-event-v1}
+  validations:
+    - expression: derived.largestArtifact <= 104857600
+      message: an artifact exceeds 100MiB
+    - expression: object.artifacts.all(a, !a.name.endsWith('.exe'))
+      message: executables are not allowed as artifacts
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: prod-deploy-needs-approval
+spec:
+  evaluation:
+    mode: Schema
+    schemaRef: {name: deploy-event-v1}
+  validations:
+    - expression: object.environment != 'prod' || (has(object.approvedBy) && object.approvedBy != '')
+      message: production deploys require approvedBy
+    - expression: object.image.contains('@sha256:')
+      message: image must be pinned by digest
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PayloadBinding
+metadata:
+  name: events
+spec:
+  route:
+    path: /events
+    methods: [POST]
+  authorization:
+    allowedPrincipals:
+      - spiffe://example.com/build-system
+  selection:
+    candidates:
+      - name: build-event-v1
+      - name: deploy-event-v1
+  requiredPolicies:
+    - name: build-size-limit
+    - name: prod-deploy-needs-approval
+  enforcement:
+    requireApplicablePolicy: true
+    defaultOnNoMatch: Deny
+  limits:
+    maxBodyBytes: 1048576
+    maxCandidates: 4
+  response:
+    statusCode: 200
+    bodyExpression: >-
+      decision.allowed
+        ? {"allowed": true, "schema": decision.schema}
+        : {"allowed": false, "schema": decision.schema, "reason": decision.message}
