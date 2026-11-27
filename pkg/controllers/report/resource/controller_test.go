@@ -1,12 +1,17 @@
 package resource
 
 import (
+	"context"
+	"fmt"
 	"sort"
 	"testing"
 
 	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func matchResourcesFor(group, version, resource string) *admissionregistrationv1.MatchResources {
@@ -66,5 +71,36 @@ func TestKindsFromPolicyAndAutogen(t *testing.T) {
 			sort.Strings(want)
 			assert.DeepEqual(t, kinds, want)
 		})
+	}
+}
+
+func TestListResourceHashesRestartsExpiredSnapshot(t *testing.T) {
+	expired := false
+	list := func(_ context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+		if opts.Limit != 500 {
+			return nil, fmt.Errorf("LIST limit = %d, want 500", opts.Limit)
+		}
+		if opts.Continue != "" {
+			expired = true
+			return nil, apierrors.NewResourceExpired("expired continuation")
+		}
+		page := &unstructured.UnstructuredList{}
+		var obj unstructured.Unstructured
+		if expired {
+			page.SetResourceVersion("20")
+			obj.SetUID("new")
+		} else {
+			page.SetResourceVersion("10")
+			page.SetContinue("next")
+			obj.SetUID("old")
+		}
+		page.Items = []unstructured.Unstructured{obj}
+		return page, nil
+	}
+
+	hashes, rv, err := listResourceHashes(t.Context(), list)
+	assert.NilError(t, err)
+	if rv != "20" || len(hashes) != 1 || hashes["new"].Hash == "" {
+		t.Fatalf("expected only the new resource hash at version 20, got %v at %q", hashes, rv)
 	}
 }

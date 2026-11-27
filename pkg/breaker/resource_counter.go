@@ -9,7 +9,9 @@ import (
 	watchtools "github.com/kyverno/kyverno/cmd/kyverno/watch"
 	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	"github.com/kyverno/kyverno/pkg/logging"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -71,6 +73,12 @@ func (c *counter) consume(events <-chan k8swatch.Event) {
 	}
 }
 
+func listResourceUIDs(ctx context.Context, options metav1.ListOptions, list func(context.Context, metav1.ListOptions) (*metav1.PartialObjectMetadataList, error)) (sets.Set[types.UID], string, error) {
+	return controllerutils.ListIndexByUID(ctx, options, list, func(obj runtime.Object) (types.UID, sets.Empty) {
+		return obj.(*metav1.PartialObjectMetadata).GetUID(), sets.Empty{}
+	})
+}
+
 // resync lists the resource and replaces the entries and watcher the counter
 // reports on with a watcher started from the returned resource version.
 func (c *counter) resync(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (retryWatcher, error) {
@@ -78,7 +86,7 @@ func (c *counter) resync(ctx context.Context, client metadataclient.Interface, g
 	if tweakListOptions != nil {
 		tweakListOptions(&listOptions)
 	}
-	objs, err := client.Resource(gvr).List(ctx, listOptions)
+	entries, resourceVersion, err := listResourceUIDs(ctx, listOptions, client.Resource(gvr).List)
 	if err != nil {
 		return nil, err
 	}
@@ -90,13 +98,9 @@ func (c *counter) resync(ctx context.Context, client metadataclient.Interface, g
 			return client.Resource(gvr).Watch(ctx, options)
 		},
 	}
-	watchInterface, err := watchtools.NewRetryWatcher(objs.GetResourceVersion(), watcher)
+	watchInterface, err := watchtools.NewRetryWatcher(resourceVersion, watcher)
 	if err != nil {
 		return nil, err
-	}
-	entries := sets.New[types.UID]()
-	for _, entry := range objs.Items {
-		entries.Insert(entry.GetUID())
 	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
