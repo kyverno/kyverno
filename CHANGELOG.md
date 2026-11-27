@@ -5,7 +5,14 @@
 
 <!-- coderabbit-ai-generated-section:v1:3c451babf12bd3ac28448358cfa957eaf22875d3e15b7c17a01c32e0c4dbde74 -->
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:95665248868886e20c35e74fa68809e57da5c692b048db18991136dec37a7961 -->
+
 - fix(cli): prevent panics when `kyverno apply` and `kyverno test` process a `NamespacedGeneratingPolicy` (#18820)
+- fix(webhook): prevent repeated updates to unchanged webhook configurations by applying API server defaults before comparison (#17747)
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 <!-- /coderabbit-ai-generated:v1 -->
 
