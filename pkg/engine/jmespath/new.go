@@ -29,7 +29,7 @@ func newImplementation(configuration config.Configuration) Interface {
 	functionCaller := gojmespath.NewFunctionCaller()
 	functions := GetFunctions(configuration)
 	for _, f := range functions {
-		functionCaller.Register(f.FunctionEntry)
+		functionCaller.Register(f.registrable())
 	}
 
 	return implementation{
