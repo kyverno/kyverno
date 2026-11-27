@@ -876,6 +876,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		config.MutatingPolicyWebhookName,
 		"/mpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		mpols,
 		c.celExpressionCache)
@@ -890,6 +891,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		config.NamespacedMutatingPolicyWebhookName,
 		"/nmpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		nmpols,
 		c.celExpressionCache)...)
@@ -907,6 +909,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		config.ImageValidatingPolicyMutateWebhookName,
 		"/ivpol/mutate",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		ivpolsNeedingMutation(ivpols),
 		c.celExpressionCache)...)
@@ -921,6 +924,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		ivpolsNeedingMutation(nivpols),
 		c.celExpressionCache)...)
@@ -1006,6 +1010,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		pols,
 		c.celExpressionCache)
@@ -1024,6 +1029,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.NamespacedValidatingPolicyWebhookName,
 		"/nvpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		nvpols,
 		c.celExpressionCache)
@@ -1042,6 +1048,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.GeneratingPolicyWebhookName,
 		"/gpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		gpols,
 		c.celExpressionCache)
@@ -1060,6 +1067,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.NamespacedGeneratingPolicyWebhookName,
 		"/ngpol",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		ngpols,
 		c.celExpressionCache)
@@ -1078,6 +1086,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.ImageValidatingPolicyValidateWebhookName,
 		"/ivpol/validate",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		ivpols,
 		c.celExpressionCache)
@@ -1096,6 +1105,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		c.servicePort,
+		c.defaultTimeout,
 		caBundle,
 		nivpols,
 		c.celExpressionCache)

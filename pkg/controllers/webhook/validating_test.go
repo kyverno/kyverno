@@ -326,6 +326,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				config.ValidatingPolicyWebhookName,
 				"/vpol",
 				0,
+				DefaultWebhookTimeout,
 				nil,
 				vpols,
 				expressionCache,
@@ -454,6 +455,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 				config.NamespacedValidatingPolicyWebhookName,
 				"/nvpol",
 				0,
+				DefaultWebhookTimeout,
 				nil,
 				nvpols,
 				expressionCache,
@@ -516,7 +518,7 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 		return buildWebhookRules(
 			config.NewDefaultConfiguration(false),
 			"", webhookName, queryPath,
-			0, nil, generic, cache,
+			0, DefaultWebhookTimeout, nil, generic, cache,
 		)
 	}
 	vpolA := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
@@ -775,6 +777,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				config.ImageValidatingPolicyValidateWebhookName,
 				"/ivpol/validate",
 				0,
+				DefaultWebhookTimeout,
 				nil,
 				ivpols,
 				expressionCache,
@@ -859,6 +862,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 			config.ImageValidatingPolicyValidateWebhookName,
 			"/ivpol/validate",
 			0,
+			DefaultWebhookTimeout,
 			nil,
 			ivpols,
 			expressionCache,
@@ -1038,6 +1042,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		config.GeneratingPolicyWebhookName,
 		"/gpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
 		expressionCache,
@@ -1048,6 +1053,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		config.NamespacedGeneratingPolicyWebhookName,
 		"/ngpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedGeneratingPolicy(ngpol)},
 		expressionCache,
@@ -1134,6 +1140,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 				config.GeneratingPolicyWebhookName,
 				"/gpol",
 				0,
+				DefaultWebhookTimeout,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
 				expressionCache,
@@ -1197,6 +1204,7 @@ func TestBuildWebhookRules_GeneratingPolicy_Autogen_TrailingComment(t *testing.T
 				config.GeneratingPolicyWebhookName,
 				"/gpol",
 				0,
+				30,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
 				expressionCache,
@@ -1272,9 +1280,9 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	expressionCache := NewExpressionCache()
 	cfg := config.NewDefaultConfiguration(false)
 
-	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
+	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, DefaultWebhookTimeout, nil,
 		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
-	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
+	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, DefaultWebhookTimeout, nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
 
 	assert.Len(t, mpolWebhooks, 1)
@@ -1355,7 +1363,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 
 	webhooks := buildWebhookRules(
 		config.NewDefaultConfiguration(false),
-		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
+		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, DefaultWebhookTimeout, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
 		NewExpressionCache(),
 	)
@@ -1415,6 +1423,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		policies,
 		NewExpressionCache(),
@@ -1474,6 +1483,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		policies,
 		NewExpressionCache(),
@@ -1525,6 +1535,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		config.NamespacedValidatingPolicyWebhookName,
 		"/nvpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		policies,
 		NewExpressionCache(),
@@ -1689,6 +1700,7 @@ func TestBuildWebhookRules_FineGrained_SharedCollisionTracking(t *testing.T) {
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewValidatingPolicy(vpol)},
 		expressionCache,
