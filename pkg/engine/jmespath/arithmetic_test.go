@@ -768,12 +768,15 @@ func Test_Modulo(t *testing.T) {
 	}
 }
 
+// Test_Round checks round() results and the errors for arguments it rejects,
+// including the full message for a negative number of decimal places.
 func Test_Round(t *testing.T) {
 	testCases := []struct {
 		name           string
 		test           string
 		expectedResult interface{}
 		err            bool
+		errMessage     string
 		retFloat       bool
 	}{
 		// Scalar
@@ -806,9 +809,10 @@ func Test_Round(t *testing.T) {
 			err:  true,
 		},
 		{
-			name: "Scalar roundoff negative int -> error",
-			test: "round(`14`, `-2`)",
-			err:  true,
+			name:       "Scalar roundoff negative int -> error",
+			test:       "round(`14`, `-2`)",
+			err:        true,
+			errMessage: "JMESPath function 'round': 2 argument is out of bounds (-2)",
 		},
 	}
 	for _, tc := range testCases {
@@ -821,6 +825,9 @@ func Test_Round(t *testing.T) {
 				assert.NilError(t, err)
 			} else {
 				assert.Assert(t, err != nil)
+				if tc.errMessage != "" {
+					assert.Error(t, err, tc.errMessage)
+				}
 				return
 			}
 
