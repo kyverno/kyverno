@@ -61,6 +61,10 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		match := autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
+		if match == nil {
+			// No operations means no generated rule can match, so skip this config.
+			continue
+		}
 		spec.SetMatchConstraints(*match)
 
 		// Extraction-mode targets (custom workload CRDs) have no fixed

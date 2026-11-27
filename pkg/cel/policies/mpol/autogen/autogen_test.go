@@ -733,6 +733,34 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			expectedRules: 1,
 			expectedError: false,
 		},
+		{
+			name: "resource rule without operations generates no rules",
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"autogen-repro": "true"}}}`,
+						},
+					},
+				},
+			},
+			configs:       sets.New("deployments"),
+			expectedRules: 0,
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {

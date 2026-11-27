@@ -609,6 +609,19 @@ func Test_Apply(t *testing.T) {
 	}
 }
 
+func Test_Apply_MutatingPolicyAutogenNoOperations(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mpol-autogen-no-operations/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mpol-autogen-no-operations/resource.yaml"},
+		PolicyReport:  true,
+	}
+
+	// A resource rule without operations matches nothing, so no policy report is
+	// produced. This must complete without panicking while loading the policy.
+	_, _, _, _, err := config.applyCommandHelper(context.TODO(), os.Stdout)
+	assert.NoError(t, err)
+}
+
 type TestCase struct {
 	expectedReports []openreportsv1alpha1.Report
 	config          ApplyCommandConfig
