@@ -68,6 +68,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -1337,6 +1338,13 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
 		if err != nil {
 			return nil, err
+		}
+		discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create discovery client: %w", err)
+		}
+		if _, err := discoveryClient.ServerGroups(); err != nil {
+			return nil, fmt.Errorf("failed to connect to cluster: %w", err)
 		}
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
