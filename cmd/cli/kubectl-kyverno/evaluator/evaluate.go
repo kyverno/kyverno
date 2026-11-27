@@ -132,46 +132,35 @@ func Evaluate(ctx context.Context, set *PolicySet, in Input, opts Options) (*Res
 	if nsResolver == nil {
 		nsResolver = processor.GetNamespaceResolver(in.Variables, in.Client, opts.Cluster)
 	}
-	rc, resources, responses1, err := e.applyPolicies(set, in, nsResolver)
-	result := &Result{Counts: rc, Resources: resources, Responses: responses1}
+	rc, resources, responses, err := e.applyPolicies(set, in, nsResolver)
+	result := &Result{Counts: rc, Resources: resources, Responses: responses}
 	if err != nil {
 		return result, err
 	}
 	e.oldResources = in.OldResources
-	responses4, err := e.applyImageValidatingPolicies(set.ImageValidatingPolicies, in.JSONPayloads, resources, in.Exceptions, nsResolver, in.UserInfo, rc, in.Client, operationOf(in))
-	if err != nil {
-		result.Responses = responses4
-		return result, err
-	}
-	responses5, err := e.applyDeletingPolicies(set.DeletingPolicies, resources, in.Exceptions, nsResolver, rc, in.Client, "resource")
-	if err != nil {
-		result.Responses = responses4
-		return result, err
-	}
-	responses6, err := e.applyDeletingPolicies(set.DeletingPolicies, in.JSONPayloads, in.Exceptions, nsResolver, rc, in.Client, "json")
-	if err != nil {
-		result.Responses = responses4
-		return result, err
-	}
+	// each pass adds its responses before its error is checked, so a failing pass still returns
+	// every response that Counts already includes
 	authzProcessor := processor.NewAuthzProcessor(rc, in.Client, set.HTTPPolicies, set.EnvoyPolicies, opts.AuditWarn)
-	httpResponses, err := authzProcessor.ApplyHTTPPolicies(in.HTTPRequests)
-	if err != nil {
-		result.Responses = responses4
-		return result, err
+	passes := []func() ([]engineapi.EngineResponse, error){
+		func() ([]engineapi.EngineResponse, error) {
+			return e.applyImageValidatingPolicies(set.ImageValidatingPolicies, in.JSONPayloads, resources, in.Exceptions, nsResolver, in.UserInfo, rc, in.Client, operationOf(in))
+		},
+		func() ([]engineapi.EngineResponse, error) {
+			return e.applyDeletingPolicies(set.DeletingPolicies, resources, in.Exceptions, nsResolver, rc, in.Client, "resource")
+		},
+		func() ([]engineapi.EngineResponse, error) {
+			return e.applyDeletingPolicies(set.DeletingPolicies, in.JSONPayloads, in.Exceptions, nsResolver, rc, in.Client, "json")
+		},
+		func() ([]engineapi.EngineResponse, error) { return authzProcessor.ApplyHTTPPolicies(in.HTTPRequests) },
+		func() ([]engineapi.EngineResponse, error) { return authzProcessor.ApplyEnvoyPolicies(in.EnvoyRequests) },
 	}
-	envoyResponses, err := authzProcessor.ApplyEnvoyPolicies(in.EnvoyRequests)
-	if err != nil {
-		result.Responses = responses4
-		return result, err
+	for _, pass := range passes {
+		passResponses, err := pass()
+		result.Responses = append(result.Responses, passResponses...)
+		if err != nil {
+			return result, err
+		}
 	}
-	responses := make([]engineapi.EngineResponse, 0, len(responses1)+len(responses4)+len(responses5)+len(responses6)+len(httpResponses)+len(envoyResponses))
-	responses = append(responses, responses1...)
-	responses = append(responses, responses4...)
-	responses = append(responses, responses5...)
-	responses = append(responses, responses6...)
-	responses = append(responses, httpResponses...)
-	responses = append(responses, envoyResponses...)
-	result.Responses = responses
 	return result, nil
 }
 
@@ -570,7 +559,12 @@ func (e *evaluation) applyImageValidatingPolicies(
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
+		// the exceptions that apply to this policy, selected as ivpolengine.NewProvider does for
+		// resources, so a matching exception exempts a JSON payload too
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{
+			Policy:     p,
+			Exceptions: celengine.ExceptionScopeAll.Select(celExceptions, p.GetKind(), p.GetName(), p.GetNamespace()),
+		})
 	}
 
 	for _, json := range jsonPayloads {
@@ -597,7 +591,18 @@ func (e *evaluation) applyImageValidatingPolicies(
 				// a match condition excluded the payload, so there is nothing to report
 				continue
 			}
-			if rslt.Error != nil {
+			if len(rslt.Exceptions) > 0 {
+				// reported the way the resource path reports an exempted policy
+				exceptions := make([]engineapi.GenericException, 0, len(rslt.Exceptions))
+				keys := make([]string, 0, len(rslt.Exceptions))
+				for _, ex := range rslt.Exceptions {
+					keys = append(keys, ex.GetNamespace()+"/"+ex.GetName())
+					exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
+				}
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RuleSkip("exception", engineapi.ImageVerify, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions),
+				}
+			} else if rslt.Error != nil {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
 					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
 				}

@@ -29,10 +29,17 @@ kyverno serve --allow-request-policies                   # policies arrive with 
 - a path is unreadable;
 - a document is not a supported policy;
 - a legacy `kyverno.io` policy kind is present;
-- a CEL policy does not compile, for example because of an invalid expression;
+- a Kyverno CEL policy (`ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`,
+  `DeletingPolicy`, `ImageValidatingPolicy`, or an HTTP or Envoy policy) does not compile, for
+  example because of an invalid expression;
 - or no policies are found.
 
 Request `policies` are checked the same way, and a failure is a 400.
+
+`ValidatingAdmissionPolicy` and `MutatingAdmissionPolicy` expressions are compiled by the
+Kubernetes admission libraries when they are evaluated, not at load time. A broken one is
+accepted at startup, and each request it matches gets `decision: Error` with the compile message.
+It never gets `Allow`.
 
 This is unlike `apply`, which skips invalid files. A server that silently skipped a policy would
 allow every later request that policy should have checked.

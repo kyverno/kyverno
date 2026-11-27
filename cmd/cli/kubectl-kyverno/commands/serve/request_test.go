@@ -3,10 +3,12 @@ package serve
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
@@ -163,6 +165,8 @@ func TestEvaluateRequestErrors(t *testing.T) {
 	require.NoError(t, err)
 	pod := read(t, fixture("payloads", "kubernetes", "pod.yaml"))
 	labels := read(t, fixture("policies", "kubernetes", "check-deployment-labels.yaml"))
+	// a v1 List whose item has neither apiVersion nor kind parses without error
+	untypedList := `{"apiVersion":"v1","kind":"List","items":[{"metadata":{"name":"x"}}]}`
 	tests := []struct {
 		name   string
 		server *Server
@@ -186,6 +190,10 @@ func TestEvaluateRequestErrors(t *testing.T) {
 		{"non-exception in exceptions", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Exceptions: pod}), http.StatusBadRequest, "CEL PolicyException"},
 		{"bad context", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Context: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}), http.StatusBadRequest, "context:"},
 		{"non-CRD in customResourceDefinitions", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, CustomResourceDefinitions: pod}), http.StatusBadRequest, "must be a CustomResourceDefinition"},
+		{"oldPayload without kind", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, OldPayload: untypedList}), http.StatusBadRequest, "oldPayload: resource 0 is missing apiVersion or kind"},
+		{"cluster resource without kind", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, ClusterResources: untypedList}), http.StatusBadRequest, "clusterResources: resource 0 is missing apiVersion or kind"},
+		{"parameter resource without kind", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, ParameterResources: untypedList}), http.StatusBadRequest, "parameterResources: resource 0 is missing apiVersion or kind"},
+		{"target resource without kind", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, TargetResources: untypedList}), http.StatusBadRequest, "targetResources: resource 0 is missing apiVersion or kind"},
 		{"bad cluster resources", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, ClusterResources: "{"}), http.StatusBadRequest, "clusterResources:"},
 	}
 	for _, tt := range tests {
@@ -328,4 +336,63 @@ func TestRequestOldPayloadAndNamespaces(t *testing.T) {
 	code, resp, st = postRequest(t, h, EvaluationRequest{Mode: "Kubernetes", Policies: prodNamespacesOnlyPolicy, Payload: pod, ClusterResources: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: default\n  labels:\n    env: prod\n"})
 	require.Equal(t, http.StatusOK, code, st.Message)
 	assert.Equal(t, DecisionDeny, resp.Decision)
+}
+
+// TestConcurrentRequestPolicies sends requests that carry their own policies at the same time.
+// Compiling them touches process-global CEL library state, so it must happen under the server
+// lock; run with -race.
+//
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestConcurrentRequestPolicies(t *testing.T) {
+	s, err := newServerFromPaths(nil, Config{AllowRequestPolicies: true})
+	require.NoError(t, err)
+	h := s.Handler()
+	labels := read(t, fixture("policies", "kubernetes", "check-deployment-labels.yaml"))
+	cases := []struct {
+		payload  string
+		decision Decision
+	}{
+		{read(t, fixture("payloads", "kubernetes", "deployment-pass.yaml")), DecisionAllow},
+		{read(t, fixture("payloads", "kubernetes", "deployment-fail.yaml")), DecisionDeny},
+	}
+	const requests = 16
+	var wg sync.WaitGroup
+	errs := make(chan string, requests)
+	for i := 0; i < requests; i++ {
+		wg.Add(1)
+		go func(c int) {
+			defer wg.Done()
+			want := cases[c%len(cases)]
+			code, resp, st := postRequest(t, h, EvaluationRequest{Mode: evaluator.ModeKubernetes, Policies: labels, Payload: want.payload})
+			if code != http.StatusOK || resp.Decision != want.decision {
+				errs <- fmt.Sprintf("request %d: HTTP %d, decision %q, want %q (%s)", c, code, resp.Decision, want.decision, st.Message)
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Error(e)
+	}
+}
+
+// TestBrokenAdmissionPolicyIsError pins the guarantee for VAPs and MAPs, whose CEL is compiled by
+// the Kubernetes admission libraries at evaluation time rather than by PolicySet.Compile: a broken
+// expression is accepted at load time but its result is an error, so the decision is Error and
+// never Allow.
+//
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestBrokenAdmissionPolicyIsError(t *testing.T) {
+	s, err := newServerFromPaths(nil, Config{AllowRequestPolicies: true})
+	require.NoError(t, err)
+	code, resp, st := postRequest(t, s.Handler(), EvaluationRequest{
+		Mode:     evaluator.ModeKubernetes,
+		Policies: read(t, fixture("requests", "broken-vap.yaml")),
+		Payload:  read(t, fixture("payloads", "kubernetes", "deployment-pass.yaml")),
+	})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, DecisionError, resp.Decision)
+	require.Len(t, resp.Results, 1)
+	assert.Equal(t, "error", resp.Results[0].Status)
+	assert.Contains(t, resp.Results[0].Message, "compilation failed")
 }

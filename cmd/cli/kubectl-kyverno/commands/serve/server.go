@@ -256,7 +256,7 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 			writeStatus(w, http.StatusForbidden, "request policies are disabled; start kyverno serve with --allow-request-policies")
 			return
 		}
-		set, err = evaluator.LoadStrictBytes([]byte(req.Policies))
+		set, err = s.loadRequestPolicies([]byte(req.Policies))
 		if err != nil {
 			writeStatus(w, http.StatusBadRequest, "policies: "+err.Error())
 			return
@@ -340,6 +340,21 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, r.Context(), mode, set, digest, in, clusterResources, evaluator.Options{ContextPath: contextPath, CrdPaths: crdPaths})
 }
 
+// loadRequestPolicies loads and compiles request-supplied policies while holding the server lock.
+// The CEL compilers read and initialize process-global library state (libs.GetLibsCtx), so
+// compiling outside the lock could race with another request's compilation or evaluation.
+func (s *Server) loadRequestPolicies(content []byte) (set *evaluator.PolicySet, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer func() {
+		if p := recover(); p != nil {
+			log.Log.Error(fmt.Errorf("%v", p), "loading request policies panicked", "stack", string(debug.Stack()))
+			set, err = nil, fmt.Errorf("loading the policies panicked: %v", p)
+		}
+	}()
+	return evaluator.LoadStrictBytes(content)
+}
+
 // writeCRDs validates CustomResourceDefinitions and writes them to a private temp file, the form
 // the evaluator reads them in (apply's --crd-paths).
 func writeCRDs(content string) (string, func(), error) {
@@ -406,7 +421,19 @@ func decodeResources(field, content string) ([]*unstructured.Unstructured, error
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", field, err)
 	}
-	return evaluator.ProcessResources(objects), nil
+	// validated like the payload: an object without apiVersion or kind would otherwise reach the
+	// in-memory cluster and fail the evaluation with a 500, or be silently ignored as an old object
+	kept := make([]*unstructured.Unstructured, 0, len(objects))
+	for i, o := range objects {
+		if o == nil || len(o.Object) == 0 {
+			continue
+		}
+		if o.GetAPIVersion() == "" || o.GetKind() == "" {
+			return nil, fmt.Errorf("%s: resource %d is missing apiVersion or kind", field, i)
+		}
+		kept = append(kept, o)
+	}
+	return evaluator.ProcessResources(kept), nil
 }
 
 func (s *Server) readBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {

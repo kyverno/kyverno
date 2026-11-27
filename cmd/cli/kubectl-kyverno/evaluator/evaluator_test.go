@@ -458,3 +458,123 @@ spec:
 		})
 	}
 }
+
+// TestEvaluateKeepsResponsesWhenALaterPassFails: the ValidatingPolicy pass completes and is
+// counted, then the DeletingPolicy pass fails (its policy does not compile; Evaluate is handed the
+// set without LoadStrict's checks). The error must come back with the completed response.
+//
+//nolint:paralleltest // data.InjectProcessor sets process-global state
+func TestEvaluateKeepsResponsesWhenALaterPassFails(t *testing.T) {
+	data.InjectProcessor(data.NewCRDProcessor(nil))
+	validating, err := policy.LoadBytes("validating", readFixture(t, "policies", "kubernetes", "check-deployment-labels.yaml"))
+	require.NoError(t, err)
+	deleting, err := policy.LoadBytes("deleting", []byte(`apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: broken
+spec:
+  schedule: "*/1 * * * *"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [apps]
+      apiVersions: [v1]
+      resources: [deployments]
+  conditions:
+  - name: broken
+    expression: "object.metadata.name =="
+`))
+	require.NoError(t, err)
+	set := &PolicySet{}
+	set.Add(validating)
+	set.Add(deleting)
+	require.Error(t, set.Compile(), "the set is only usable because LoadStrict was skipped")
+
+	in, err := DecodeInput(ModeKubernetes, readFixture(t, "payloads", "kubernetes", "deployment-fail.yaml"))
+	require.NoError(t, err)
+	in.Client, err = NewFakeClient(in.Resources, nil, nil)
+	require.NoError(t, err)
+	result, err := Evaluate(context.Background(), set, in, Options{})
+	require.Error(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 1, result.Counts.Fail)
+	require.Len(t, result.Responses, 1, "the completed ValidatingPolicy response is kept")
+	assert.Equal(t, "check-deployment-labels", result.Responses[0].Policy().GetName())
+}
+
+// TestEvaluateJSONImageValidatingPolicyException: a PolicyException that matches a JSON payload
+// exempts a JSON-mode ImageValidatingPolicy, as it does for resources. The policy always fails and
+// calls no attestor, so nothing is fetched from a registry.
+//
+//nolint:paralleltest // data.InjectProcessor sets process-global state
+func TestEvaluateJSONImageValidatingPolicyException(t *testing.T) {
+	data.InjectProcessor(data.NewCRDProcessor(nil))
+	const ivpol = `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: json-images
+spec:
+  evaluation:
+    mode: JSON
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  images:
+  - name: app
+    expression: "[object.image]"
+  validations:
+  - expression: "false"
+    message: always fails
+`
+	const exception = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exempt-sandbox
+spec:
+  policyRefs:
+  - name: json-images
+    kind: ImageValidatingPolicy
+  matchConditions:
+  - name: is-sandbox
+    expression: "object.env == 'sandbox'"
+`
+	tests := []struct {
+		name       string
+		payload    string
+		exceptions bool
+		want       engineapi.RuleStatus
+	}{
+		{"no exception fails", `{"env":"sandbox","image":"registry.example.com/app:1"}`, false, engineapi.RuleStatusFail},
+		{"matching exception skips", `{"env":"sandbox","image":"registry.example.com/app:1"}`, true, engineapi.RuleStatusSkip},
+		{"exception that does not match still fails", `{"env":"production","image":"registry.example.com/app:1"}`, true, engineapi.RuleStatusFail},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := ivpol
+			if tt.exceptions {
+				content += "---\n" + exception
+			}
+			set, err := LoadStrictBytes([]byte(content))
+			require.NoError(t, err)
+			in, err := DecodeInput(ModeJSON, []byte(tt.payload))
+			require.NoError(t, err)
+			in.Exceptions = set.PolicyCelExceptions
+			result, err := Evaluate(context.Background(), set, in, Options{})
+			require.NoError(t, err)
+			require.Len(t, result.Responses, 1)
+			rules := result.Responses[0].PolicyResponse.Rules
+			require.Len(t, rules, 1)
+			assert.Equal(t, tt.want, rules[0].Status(), rules[0].Message())
+			if tt.want == engineapi.RuleStatusSkip {
+				assert.Contains(t, rules[0].Message(), "exempt-sandbox")
+				assert.Len(t, rules[0].Exceptions(), 1)
+			}
+		})
+	}
+}

@@ -528,6 +528,7 @@ func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
 	trace.Render(out, d)
 	fmt.Fprintln(out)
 }
+
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resourceOptions := loader.ResourceOptions{
 		Namespace:       c.Namespace,
