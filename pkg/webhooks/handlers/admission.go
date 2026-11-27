@@ -13,6 +13,12 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
+// maxAdmissionRequestBytes bounds the AdmissionReview body read from the network.
+// The API server caps request bodies at 3MiB, and an AdmissionReview can carry both
+// the object and its old version, so 7MiB matches controller-runtime's webhook limit
+// while preventing a caller that reaches the service directly from exhausting memory.
+const maxAdmissionRequestBytes int64 = 7 * 1024 * 1024
+
 func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
 	return inner.withAdmission(logger).WithMetrics(logger).WithTrace("ADMISSION")
 }
@@ -25,14 +31,19 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			return
 		}
 		defer request.Body.Close()
-		body, err := io.ReadAll(request.Body)
-		if err != nil {
-			HttpError(request.Context(), writer, request, logger, err, http.StatusBadRequest)
-			return
-		}
 		contentType := request.Header.Get("Content-Type")
 		if contentType != "application/json" {
 			HttpError(request.Context(), writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
+			return
+		}
+		body, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxAdmissionRequestBytes))
+		if err != nil {
+			var maxBytesErr *http.MaxBytesError
+			if errors.As(err, &maxBytesErr) {
+				HttpError(request.Context(), writer, request, logger, err, http.StatusRequestEntityTooLarge)
+				return
+			}
+			HttpError(request.Context(), writer, request, logger, err, http.StatusBadRequest)
 			return
 		}
 		var admissionReview admissionv1.AdmissionReview

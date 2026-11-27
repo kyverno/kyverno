@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -149,4 +150,103 @@ func TestWithAdmission(t *testing.T) {
 			}
 		})
 	}
+}
+
+// countingReader yields an endless stream of bytes and records how many were read.
+type countingReader struct{ read int64 }
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = ' '
+	}
+	r.read += int64(len(p))
+	return len(p), nil
+}
+
+func TestWithAdmissionRejectsOversizedBody(t *testing.T) {
+	called := false
+	handler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		called = true
+		return AdmissionResponse{Allowed: true}
+	})
+	body := &countingReader{}
+	req := httptest.NewRequest("POST", "/validate", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.withAdmission(testr.New(t))(rr, req)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rr.Code)
+	assert.False(t, called, "inner handler must not run for an oversized body")
+	assert.LessOrEqual(t, body.read, maxAdmissionRequestBytes+64*1024, "body must not be read far past the limit")
+}
+
+func TestWithAdmissionRejectsContentTypeBeforeReadingBody(t *testing.T) {
+	body := &countingReader{}
+	req := httptest.NewRequest("POST", "/validate", body)
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+
+	mockAdmissionHandler(AdmissionResponse{}).withAdmission(testr.New(t))(rr, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, rr.Code)
+	assert.Zero(t, body.read, "body must not be read when Content-Type is invalid")
+}
+
+// paddedAdmissionReview returns a valid AdmissionReview body padded with trailing
+// JSON whitespace to exactly size bytes.
+func paddedAdmissionReview(t *testing.T, size int64) []byte {
+	t.Helper()
+	review, err := json.Marshal(admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{UID: types.UID("test-uid")}})
+	assert.NoError(t, err)
+	return append(review, bytes.Repeat([]byte(" "), int(size)-len(review))...)
+}
+
+func TestWithAdmissionBodySizeBoundary(t *testing.T) {
+	testCases := []struct {
+		name               string
+		size               int64
+		expectedStatusCode int
+		expectCalled       bool
+	}{
+		{name: "at limit", size: maxAdmissionRequestBytes, expectedStatusCode: http.StatusOK, expectCalled: true},
+		{name: "one byte over limit", size: maxAdmissionRequestBytes + 1, expectedStatusCode: http.StatusRequestEntityTooLarge},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			handler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+				called = true
+				return AdmissionResponse{Allowed: true}
+			})
+			req := httptest.NewRequest("POST", "/validate", bytes.NewReader(paddedAdmissionReview(t, tc.size)))
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+
+			handler.withAdmission(testr.New(t))(rr, req)
+
+			assert.Equal(t, tc.expectedStatusCode, rr.Code)
+			assert.Equal(t, tc.expectCalled, called)
+		})
+	}
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("connection reset") }
+
+func TestWithAdmissionBodyReadError(t *testing.T) {
+	called := false
+	handler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		called = true
+		return AdmissionResponse{Allowed: true}
+	})
+	req := httptest.NewRequest("POST", "/validate", failingReader{})
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.withAdmission(testr.New(t))(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.False(t, called, "inner handler must not run when the body cannot be read")
 }
