@@ -30,6 +30,10 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: added
+      description: Aggregate the `kyverno.io` policyexceptions and globalcontextentries resources into the Kubernetes default `view` and `admin` roles.
+    - kind: changed
+      description: UpdateRequests embed the full admission request and are no longer aggregated into the `view` role, only into `admin`.
     - kind: fixed
       description: Grant the background controller every permission the chart aggregates into the admin and view roles, so generate rules can create RoleBindings to admin again.
     - kind: fixed

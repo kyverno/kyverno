@@ -9,3 +9,7 @@ spec:
     try:
     - assert:
         file: view-policies.yaml
+    - assert:
+        file: view-globalcontextentries.yaml
+    - error:
+        file: view-updaterequests-absent.yaml
