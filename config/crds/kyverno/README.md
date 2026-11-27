@@ -76,7 +76,7 @@ targets (`register-gen`, `deepcopy-gen`) install from
 `k8s.io/code-generator@v0.35.0`, which requires Go >= 1.25. On a host whose
 base `go` is older than that, `go install` silently builds those tools with
 whatever newer toolchain it switches to, which can then fail to parse this
-repo's own Go 1.27.3 stdlib. Build them with
-`GOTOOLCHAIN=go1.27.3 GOBIN=.tools go install k8s.io/code-generator/cmd/{register-gen,deepcopy-gen}@v0.35.0`
+repo's own Go 1.27.4 stdlib. Build them with
+`GOTOOLCHAIN=go1.27.4 GOBIN=.tools go install k8s.io/code-generator/cmd/{register-gen,deepcopy-gen}@v0.35.0`
 if `make codegen-api-all` errors with a `math/rand/v2` parse failure. CI's
-base Go is already 1.27.3 and is unaffected.
+base Go is already 1.27.4 and is unaffected.
