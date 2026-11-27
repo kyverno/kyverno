@@ -241,7 +241,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				HookFallbackMpolCompiled()
 			}
 			var err error
-			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider)
+			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider, celengine.ExceptionScopeAll)
 			if err != nil {
 				return nil, err
 			}
@@ -521,7 +521,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -600,7 +600,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolJSONCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -643,7 +643,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolJSONCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -699,12 +699,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 			compiledPolicies = make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 			for _, pol := range p.GeneratingPolicies {
-				compiled, errs := compiler.Compile(pol, p.CELExceptions)
+				matchedExceptions := celengine.ExceptionScopeAll.Select(p.CELExceptions, pol.GetKind(), pol.GetName(), pol.GetNamespace())
+				compiled, errs := compiler.Compile(pol, matchedExceptions)
 				if len(errs) > 0 {
 					return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 				}
 				compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-					Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+					Policy:         pol,
 					CompiledPolicy: compiled,
 				})
 			}

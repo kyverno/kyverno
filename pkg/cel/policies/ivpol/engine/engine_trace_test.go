@@ -74,7 +74,7 @@ func podRequest(kind, resource, namespace string) engine.EngineRequest {
 
 func handleTraced(t *testing.T, traced bool, policy *policiesv1beta1.ImageValidatingPolicy, request engine.EngineRequest, exceptions ...*policiesv1beta1.PolicyException) []iveval.ImageVerifyPolicyResponse {
 	t.Helper()
-	provider, err := NewProvider(iveval.NewCompilerWithTrace(nil, traced), []policiesv1beta1.ImageValidatingPolicyLike{policy}, exceptions)
+	provider, err := NewProvider(iveval.NewCompilerWithTrace(nil, traced), []policiesv1beta1.ImageValidatingPolicyLike{policy}, exceptions, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	eng.newImageContext = func() (imagedataloader.ImageContext, error) { return fakeImageContext{}, nil }
