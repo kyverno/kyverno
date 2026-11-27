@@ -63,14 +63,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func waitForPolicyReady(t *testing.T, count int) {
-	t.Helper()
-	require.Eventually(t, func() bool {
-		policies, err := provider.Fetch(context.Background())
-		return err == nil && len(policies) >= count
-	}, 5*time.Second, 100*time.Millisecond, "policies not reconciled in time")
-}
-
 func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.ValidatingPolicy) {
 	t.Helper()
 	require.NoError(t, testEnv.Client.Create(context.Background(), policy))
@@ -90,6 +82,7 @@ func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.ValidatingPol
 // resulting PolicyReport to see which workloads violate it, without the policy
 // blocking anything.
 func TestPolicyReport_VpolAuditEmitsFailResult(t *testing.T) {
+	t.Parallel()
 	const (
 		policyName = "audit-require-team"
 		ns         = "reports-flagship"
@@ -114,7 +107,7 @@ func TestPolicyReport_VpolAuditEmitsFailResult(t *testing.T) {
 		},
 	}
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
+	framework.WaitForVpols(t, provider, policyName)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, testEnv.KyvernoClient, true, eventGen)
@@ -125,7 +118,8 @@ func TestPolicyReport_VpolAuditEmitsFailResult(t *testing.T) {
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
 	}`)
 
-	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, ns, podJSON), "", time.Now())
+	policyCtx := framework.ContextWithPolicies(ctx, policyName)
+	resp := h.ValidateClustered(policyCtx, logr.Discard(), framework.PodAdmissionRequest(podName, ns, podJSON), "", time.Now())
 	require.True(t, resp.Allowed, "audit policy must not block the request")
 
 	// The handler emits the ephemeral report asynchronously; wait until the
