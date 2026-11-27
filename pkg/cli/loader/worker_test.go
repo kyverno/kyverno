@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	kubeTesting "k8s.io/client-go/testing"
 )
@@ -218,4 +219,99 @@ func TestWorkerPool_ResultChannelClosing(t *testing.T) {
 	// Verify result channel is closed after processing
 	_, ok := <-wp.GetResults()
 	assert.False(t, ok, "Result channel should be closed after Close()")
+}
+
+type blockingResourceClient struct {
+	dynamic.ResourceInterface
+	started chan struct{}
+}
+
+func (c *blockingResourceClient) List(ctx context.Context, opts v1.ListOptions) (*unstructured.UnstructuredList, error) {
+	close(c.started)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestWorkerPool_CloseCancelsInFlightRequest(t *testing.T) {
+	logger := logrus.New()
+	wp := NewWorkerPool(WorkerPoolConfig{
+		Workers:   1,
+		QueueSize: 1,
+		Logger:    logger,
+	})
+
+	client := &blockingResourceClient{
+		started: make(chan struct{}),
+	}
+
+	task := LoadTask{
+		ID:        "blocking-task",
+		Namespace: "default",
+		Client:    client,
+	}
+
+	wp.SubmitTask(context.Background(), task)
+
+	select {
+	case <-client.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for task to start")
+	}
+
+	// Calling Close(nil) must cancel wp.ctx via wp.Cancel(), unblocking List and allowing Close to return promptly
+	done := make(chan struct{})
+	go func() {
+		wp.Close(nil)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("WorkerPool.Close(nil) hung waiting for in-flight List request to complete")
+	}
+
+	for res := range wp.GetResults() {
+		assert.Equal(t, "blocking-task", res.TaskID)
+		assert.ErrorIs(t, res.Error, context.Canceled)
+	}
+}
+
+func TestWorkerPool_IdempotentCloseAndConcurrentSubmit(t *testing.T) {
+	logger := logrus.New()
+	wp := NewWorkerPool(WorkerPoolConfig{
+		Workers:   2,
+		QueueSize: 4,
+		Logger:    logger,
+	})
+
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	obj := &unstructured.Unstructured{}
+	obj.SetName("test-cm")
+	obj.SetNamespace("default")
+	obj.SetKind("ConfigMap")
+	obj.SetAPIVersion("v1")
+	resourceClient := createFakeClient(obj).Resource(gvr).Namespace("default")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 20; i++ {
+			wp.SubmitTask(context.Background(), LoadTask{
+				ID:        "concurrent-task",
+				GVK:       gvk,
+				GVR:       gvr,
+				Namespace: "default",
+				Client:    resourceClient,
+			})
+		}
+	}()
+
+	wp.Close(nil)
+	wp.Close(nil)
+	<-done
+
+	for range wp.GetResults() {
+	}
 }

@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +31,34 @@ func TestNewClusterLoader(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
 		_, err := NewClusterLoader(nil, ResourceOptions{})
 		assert.Error(t, err)
+	})
+
+	t.Run("preserves caller-supplied timeout", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		_, cancel := context.WithCancel(context.Background())
+		loader, err := NewClusterLoader(client, ResourceOptions{
+			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
+			Concurrency:   2,
+			BatchSize:     100,
+			Timeout:       42 * time.Second,
+		})
+		require.NoError(t, err)
+		defer loader.Close(cancel)
+		assert.Equal(t, 42*time.Second, loader.resourceOptions.Timeout)
+	})
+
+	t.Run("defaults non-positive timeout to 5 minutes", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		_, cancel := context.WithCancel(context.Background())
+		loader, err := NewClusterLoader(client, ResourceOptions{
+			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
+			Concurrency:   2,
+			BatchSize:     100,
+			Timeout:       0,
+		})
+		require.NoError(t, err)
+		defer loader.Close(cancel)
+		assert.Equal(t, 5*time.Minute, loader.resourceOptions.Timeout)
 	})
 }
 
@@ -134,5 +164,129 @@ func TestClusterLoader_Close(t *testing.T) {
 		_, cancel := context.WithCancel(context.Background())
 		assert.NoError(t, loader.Close(cancel))
 		assert.NoError(t, loader.Close(cancel))
+	})
+}
+
+func TestClusterLoader_executeTasks(t *testing.T) {
+	t.Run("empty tasks", func(t *testing.T) {
+		cl := &ClusterLoader{}
+		results, err := cl.executeTasks(context.Background(), nil)
+		require.NoError(t, err)
+		assert.Nil(t, results)
+	})
+
+	t.Run("context cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		cl := &ClusterLoader{
+			logger: logrus.New(),
+			workerPool: &WorkerPool{
+				taskQueue:  make(chan LoadTask, 5),
+				resultChan: make(chan LoadTaskResult, 5),
+				logger:     logrus.New(),
+			},
+			resourceOptions: ResourceOptions{
+				Timeout: 1 * time.Second,
+			},
+		}
+
+		tasks := []LoadTask{{ID: "task-0"}}
+		results, err := cl.executeTasks(ctx, tasks)
+		require.ErrorIs(t, err, context.Canceled)
+		assert.Nil(t, results)
+	})
+
+	t.Run("timeout returns error when ContinueOnError is false", func(t *testing.T) {
+		cl := &ClusterLoader{
+			logger: logrus.New(),
+			workerPool: &WorkerPool{
+				taskQueue:  make(chan LoadTask, 5),
+				resultChan: make(chan LoadTaskResult, 5),
+				logger:     logrus.New(),
+			},
+			resourceOptions: ResourceOptions{
+				Timeout:         50 * time.Millisecond,
+				ContinueOnError: false,
+			},
+		}
+
+		tasks := []LoadTask{{ID: "task-0"}}
+		start := time.Now()
+		results, err := cl.executeTasks(context.Background(), tasks)
+		elapsed := time.Since(start)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timeout waiting for task results")
+		assert.Nil(t, results)
+		assert.Less(t, elapsed, 500*time.Millisecond)
+	})
+
+	t.Run("timeout stops immediately and returns partial results when ContinueOnError is true", func(t *testing.T) {
+		resChan := make(chan LoadTaskResult, 5)
+		// Provide 1 result for task-0; task-1 and task-2 never send results
+		resChan <- LoadTaskResult{TaskID: "task-0"}
+
+		cl := &ClusterLoader{
+			logger: logrus.New(),
+			workerPool: &WorkerPool{
+				taskQueue:  make(chan LoadTask, 5),
+				resultChan: resChan,
+				logger:     logrus.New(),
+			},
+			resourceOptions: ResourceOptions{
+				Timeout:         60 * time.Millisecond,
+				ContinueOnError: true,
+			},
+		}
+
+		// 3 expected tasks: 1 arrives, 2 time out
+		tasks := []LoadTask{{ID: "task-0"}, {ID: "task-1"}, {ID: "task-2"}}
+		start := time.Now()
+		results, err := cl.executeTasks(context.Background(), tasks)
+		elapsed := time.Since(start)
+
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, "task-0", results[0].TaskID)
+		// Must exit on the first timeout (approx 60ms), NOT wait for all 2 missing tasks sequentially (which would take >= 120ms)
+		assert.Less(t, elapsed, 110*time.Millisecond)
+	})
+
+	t.Run("all tasks succeed and timer resets across results", func(t *testing.T) {
+		resChan := make(chan LoadTaskResult, 5)
+		timeout := 80 * time.Millisecond
+
+		cl := &ClusterLoader{
+			logger: logrus.New(),
+			workerPool: &WorkerPool{
+				taskQueue:  make(chan LoadTask, 5),
+				resultChan: resChan,
+				logger:     logrus.New(),
+			},
+			resourceOptions: ResourceOptions{
+				Timeout:         timeout,
+				ContinueOnError: false,
+			},
+		}
+
+		// Asynchronously deliver result 0 at 40ms (< timeout) and result 1 at 90ms.
+		// Total duration (~90ms) exceeds initial timeout (80ms), verifying timer reset after result 0.
+		go func() {
+			time.Sleep(40 * time.Millisecond)
+			resChan <- LoadTaskResult{TaskID: "task-0"}
+			time.Sleep(50 * time.Millisecond)
+			resChan <- LoadTaskResult{TaskID: "task-1"}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		tasks := []LoadTask{{ID: "task-0"}, {ID: "task-1"}}
+		results, err := cl.executeTasks(ctx, tasks)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		assert.Equal(t, "task-0", results[0].TaskID)
+		assert.Equal(t, "task-1", results[1].TaskID)
 	})
 }
