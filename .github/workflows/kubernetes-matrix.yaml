@@ -10,7 +10,8 @@ on:
       matrix:
         description: >-
           Which versions to export: full exports every supported version,
-          reduced exports only the oldest and the latest one.
+          reduced exports only the oldest and the latest one, and a supported
+          version, such as v1.36.4, exports only that version.
         type: string
         default: full
     outputs:
@@ -91,7 +92,14 @@ jobs:
             # The oldest and the latest versions bound the supported range, so
             # they catch most version-specific failures at half the cost.
             reduced) NODES="$(jq -c '[first, last] | unique_by(.version)' <<< "$NODES")" ;;
-            *) echo "::error::Unknown matrix '$MATRIX': use full or reduced."; exit 1 ;;
+            # A single supported version, for the /conformance PR comment command.
+            v1.*)
+              NODES="$(jq -c --arg version "$MATRIX" 'map(select(.version == $version))' <<< "$NODES")"
+              if [ "$NODES" = "[]" ]; then
+                echo "::error::Unsupported Kubernetes version '$MATRIX'."; exit 1
+              fi
+              ;;
+            *) echo "::error::Unknown matrix '$MATRIX': use full, reduced, or a supported version."; exit 1 ;;
           esac
           {
             echo "versions=$(jq -c 'map(.version)' <<< "$NODES")"

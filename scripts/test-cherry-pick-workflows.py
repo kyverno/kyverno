@@ -17,7 +17,7 @@ ACTION = yaml.safe_load(
     (ROOT / ".github/actions/git/cherry-pick/action.yaml").read_text()
 )
 COMMENT = yaml.safe_load(
-    (ROOT / ".github/workflows/comment-cherry-pick.yaml").read_text()
+    (ROOT / ".github/workflows/comment-commands.yaml").read_text()
 )
 MERGE = yaml.safe_load(
     (ROOT / ".github/workflows/cherry-pick-on-merge.yaml").read_text()
@@ -26,7 +26,7 @@ CONFLICT_CHECK = yaml.safe_load(
     (ROOT / ".github/workflows/check-cherry-pick-conflicts.yaml").read_text()
 )
 ACTION_STEPS = ACTION["runs"]["steps"]
-COMMENT_STEPS = COMMENT["jobs"]["execute"]["steps"]
+COMMENT_STEPS = COMMENT["jobs"]["cherry-pick"]["steps"]
 MERGE_STEPS = MERGE["jobs"]["cherry-pick"]["steps"]
 
 MOCK_COMMAND = r"""
@@ -259,8 +259,78 @@ class CherryPickTests(unittest.TestCase):
             self.assertEqual(checkout["with"]["ref"], "${{ github.event.repository.default_branch }}")
             self.assertFalse(checkout["with"]["persist-credentials"])
 
+    def test_comment_dispatcher_routing(self):
+        jobs = COMMENT["jobs"]
+        self.assertEqual(jobs["route"]["permissions"], {})
+        self.assertIn("startsWith(github.event.comment.body, '/cherry-pick')", jobs["route"]["if"])
+        self.assertEqual(jobs["cherry-pick"]["needs"], "route")
+        self.assertEqual(jobs["cherry-pick"]["if"], "needs.route.outputs.cherry-pick == 'true'")
+        self.assertEqual(jobs["cherry-pick"]["environment"], "pr-updater-app")
+        self.assertEqual(
+            jobs["cherry-pick"]["permissions"],
+            {"issues": "write", "pull-requests": "write", "contents": "read"},
+        )
+        for name, job in jobs.items():
+            for step in job.get("steps", []):
+                self.assertNotIn("github.event.comment.body", step.get("run", ""), name)
+
+    def test_comment_dispatcher_routes_every_command(self):
+        jobs = COMMENT["jobs"]
+        route = jobs["route"]
+        outputs = route["outputs"]
+        self.assertEqual(set(outputs), {"cherry-pick", "conformance", "prow-assign", "prow"})
+        is_pr = "github.event.issue.pull_request"
+        not_bot = "github.event.comment.user.type != 'Bot'"
+        for command, output in (("cherry-pick", "cherry-pick"), ("conformance", "conformance")):
+            self.assertIn(f"{is_pr} && startsWith(github.event.comment.body, '/{command}')", outputs[output])
+            self.assertIn(f"startsWith(github.event.comment.body, '/{command}')", route["if"])
+        for output, commands in (("prow-assign", ("/assign", "/unassign")), ("prow", ("/lgtm", "/milestone"))):
+            self.assertTrue(outputs[output].startswith("${{ " + not_bot + " && "), output)
+            for command in commands:
+                self.assertIn(f"contains(github.event.comment.body, '{command}')", outputs[output])
+                self.assertIn(f"contains(github.event.comment.body, '{command}')", route["if"])
+        self.assertIn(not_bot, route["if"])
+        # Non-members may (un)assign only on issues labeled 'good first issue'.
+        self.assertIn(
+            "contains(fromJson('[\"MEMBER\", \"OWNER\", \"COLLABORATOR\"]'), github.event.comment.author_association)",
+            outputs["prow-assign"],
+        )
+        self.assertIn("contains(github.event.issue.labels.*.name, 'good first issue')", outputs["prow-assign"])
+        gated = {
+            "cherry-pick": "cherry-pick",
+            "conformance-plan": "conformance",
+            "prow-assign": "prow-assign",
+            "prow": "prow",
+        }
+        for name, output in gated.items():
+            needs = jobs[name]["needs"]
+            self.assertIn("route", [needs] if isinstance(needs, str) else needs, name)
+            self.assertEqual(jobs[name]["if"], f"needs.route.outputs.{output} == 'true'", name)
+        # The other /conformance jobs run only for a command the plan job accepted.
+        planned = ("conformance-acknowledge", "conformance-images", "conformance-cli", "conformance-tests")
+        for name in planned:
+            self.assertEqual(jobs[name]["if"], "needs.conformance-plan.outputs.valid == 'true'", name)
+        self.assertEqual(
+            jobs["conformance-report"]["if"],
+            "always() && needs.route.outputs.conformance == 'true'",
+        )
+        self.assertEqual(set(jobs), {"route", "conformance-report", *gated, *planned})
+        # These jobs run PR code: no write grant may creep in.
+        self.assertEqual(jobs["conformance-images"]["permissions"], {"contents": "read"})
+        self.assertEqual(jobs["conformance-cli"]["permissions"], {"contents": "read"})
+        self.assertEqual(jobs["conformance-tests"]["permissions"], {"contents": "read", "packages": "read"})
+        self.assertEqual(jobs["conformance-plan"]["permissions"], {"contents": "read", "pull-requests": "read"})
+        self.assertEqual(jobs["conformance-acknowledge"]["permissions"], {"issues": "write"})
+        self.assertEqual(jobs["conformance-report"]["permissions"], {"contents": "read", "issues": "write"})
+        prow_commands = {
+            "prow-assign": "/assign /unassign",
+            "prow": "/lgtm /milestone",
+        }
+        for name, commands in prow_commands.items():
+            self.assertEqual(jobs[name]["steps"][0]["with"]["prow-commands"], commands)
+
     def test_comment_reaction_permissions(self):
-        self.assertEqual(COMMENT["jobs"]["execute"]["permissions"]["issues"], "write")
+        self.assertEqual(COMMENT["jobs"]["cherry-pick"]["permissions"]["issues"], "write")
 
     def test_workflow_token_permissions(self):
         for steps in (COMMENT_STEPS, MERGE_STEPS):

@@ -8,10 +8,17 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const AsyncFunction = (async () => {}).constructor;
 
-/** The first `script: |` block of a workflow or action file. */
-export function inlineScript(file) {
+/**
+ * The first `script: |` block of a workflow or action file, or the first one
+ * after the step named `step` when you pass it.
+ */
+export function inlineScript(file, step) {
   const lines = fs.readFileSync(path.join(root, file), 'utf8').split('\n');
-  const start = lines.findIndex(l => l.trimEnd().endsWith('script: |'));
+  const from = step === undefined ? 0 : lines.findIndex(l => l.trim() === `- name: ${step}`);
+  if (from < 0) {
+    throw new Error(`no step named ${step} in ${file}`);
+  }
+  const start = lines.findIndex((l, i) => i >= from && l.trimEnd().endsWith('script: |'));
   if (start < 0) {
     throw new Error(`no inline script in ${file}`);
   }

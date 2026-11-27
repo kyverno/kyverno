@@ -11,14 +11,38 @@ on:
         type: boolean
         default: false
       release-sha:
+        description: >-
+          Commit to test instead of the workflow commit. Release workflows set
+          it to the release commit, and the /conformance PR comment command to
+          the PR head.
         type: string
         default: ""
       matrix:
         description: >-
           Kubernetes versions to test: full runs every supported version,
-          reduced runs only the oldest and the latest one.
+          reduced runs only the oldest and the latest one, and a version from
+          kubernetes-matrix.yaml, such as v1.36.4, runs only that version.
         type: string
         default: full
+      suites:
+        description: >-
+          JSON array of the job IDs to run, for example ["mutate"]. Empty runs
+          every job.
+        type: string
+        default: ""
+      chainsaw-tests:
+        description: >-
+          Regular expression that selects the chainsaw tests to run in each
+          suite, passed to the conformance run action. Empty runs every test.
+        type: string
+        default: ""
+      untrusted-ref:
+        description: >-
+          Set by the /conformance PR comment command, whose release-sha is a PR
+          head: replace the PR's .github/actions and scripts/e2e with the copies
+          at the workflow commit before running anything.
+        type: boolean
+        default: false
 
 env:
   RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
@@ -34,6 +58,7 @@ jobs:
 
   assert:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'assert')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -45,6 +70,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -53,9 +95,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   cel-http:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'cel-http')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -67,6 +111,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -75,9 +136,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   deleting-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'deleting-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -90,6 +153,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -98,11 +178,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deleting-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
 
   deprecations:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'deprecations')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -114,6 +196,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -122,9 +221,11 @@ jobs:
           kyverno-configs: standard,legacy-denial-probe
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deprecations
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   events:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'events')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -136,6 +237,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -144,9 +262,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   force-failure-policy-ignore:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'force-failure-policy-ignore')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -158,6 +278,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -166,9 +303,12 @@ jobs:
           kyverno-configs: standard,force-failure-policy-ignore
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: force-failure-policy-ignore
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-mutating-admission-policy:
     needs: kubernetes-matrix
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy')) &&
+      needs.kubernetes-matrix.outputs.beta-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -180,6 +320,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -189,9 +346,12 @@ jobs:
           kyverno-configs: standard,generate-mutating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-mutating-admission-policy-v1:
     needs: kubernetes-matrix
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy-v1')) &&
+      needs.kubernetes-matrix.outputs.stable-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -203,6 +363,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -211,9 +388,11 @@ jobs:
           kyverno-configs: standard,generate-mutating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-validating-admission-policy:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-validating-admission-policy')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -225,6 +404,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -233,9 +429,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -248,6 +446,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -256,12 +471,14 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
           install-kubectl-evict: true
 
   globalcontext:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'globalcontext')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -273,6 +490,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -281,9 +515,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: globalcontext
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   image-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'image-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -296,6 +532,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -304,11 +557,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: image-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   lease:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'lease')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -320,6 +575,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -328,9 +600,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: lease
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutate:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutate')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -343,6 +617,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -351,11 +642,14 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutate
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   mutating-admission-policy-reports:
     needs: kubernetes-matrix
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports')) &&
+      needs.kubernetes-matrix.outputs.beta-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -367,6 +661,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -376,9 +687,12 @@ jobs:
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutating-admission-policy-reports-v1:
     needs: kubernetes-matrix
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports-v1')) &&
+      needs.kubernetes-matrix.outputs.stable-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -390,6 +704,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -398,9 +729,11 @@ jobs:
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports-v1
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -413,6 +746,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -421,11 +771,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   namespaced-deleting-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-deleting-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -437,6 +789,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -445,9 +814,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-deleting-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-generating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-generating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -460,6 +831,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -468,11 +856,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   namespaced-image-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-image-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -484,6 +874,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -492,9 +899,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-image-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-mutating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-mutating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -506,6 +915,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -514,9 +940,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-mutating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -529,6 +957,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -537,11 +982,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   policy-exceptions-disabled:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'policy-exceptions-disabled')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -553,6 +1000,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -561,9 +1025,11 @@ jobs:
           kyverno-configs: default
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-exceptions-disabled
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   rbac:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'rbac')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -576,6 +1042,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -584,10 +1067,12 @@ jobs:
           kyverno-configs: ${{ matrix.kyverno-configs }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           variant: ${{ matrix.kyverno-configs }}
 
   reports:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'reports')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -600,6 +1085,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -608,11 +1110,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   ttl:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'ttl')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -624,6 +1128,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -632,9 +1153,11 @@ jobs:
           kyverno-configs: standard,ttl
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: ttl
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   validating-admission-policy-reports:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'validating-admission-policy-reports')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -646,6 +1169,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -654,9 +1194,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -669,6 +1211,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -677,11 +1236,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 5
 
   webhook-bootstrap-exclusion:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'webhook-bootstrap-exclusion')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -693,6 +1254,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -701,9 +1279,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-bootstrap-exclusion
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   monitor-helm-secret-size:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'monitor-helm-secret-size')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -716,6 +1296,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -732,11 +1329,19 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -ex
           make kind-install-kyverno
@@ -744,6 +1349,10 @@ jobs:
         uses: ./.github/actions/kyverno/wait-ready
       - name: Check secret size
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           set -u
@@ -758,6 +1367,7 @@ jobs:
 
   check-tests:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'check-tests')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -770,6 +1380,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - if: inputs.release-candidate
         uses: ./.github/actions/release/restore
       # install tools
@@ -792,6 +1419,10 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       - name: Install Kyverno CLI
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
@@ -801,11 +1432,17 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Comes from a PR comment for /conformance, so it stays out of the script.
+          CHAINSAW_TESTS: ${{ inputs.chainsaw-tests }}
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           mkdir -p "$GITHUB_WORKSPACE/release-reports"
           cd ./test/conformance/chainsaw/cli
-          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli
+          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli \
+            --include-test-regex "^chainsaw\$/${CHAINSAW_TESTS:-}"
       - name: Retain CLI conformance test results
         if: always() && inputs.release-candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -820,6 +1457,9 @@ jobs:
         if: always()
         shell: bash
         env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
           K8S_VERSION: ${{ matrix.k8s-version }}
           OUTCOME: ${{ job.status }}
           JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}
@@ -842,6 +1482,7 @@ jobs:
 
   helm-tests:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-tests')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -854,6 +1495,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -870,6 +1528,10 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
@@ -884,11 +1546,19 @@ jobs:
         # and a cluster created from this exact kind config. Letting the check run
         # for real here (instead of bypassing it) is what actually exercises it in
         # CI.
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make verify-legacy-policy-gate
       - name: Install kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make kind-install-kyverno
@@ -900,11 +1570,19 @@ jobs:
         # VERIFY_ALLOW_DESTRUCTIVE override, so the script's live kind-identity
         # check (context name + every node's kind:// spec.providerID) actually
         # runs against this kind-action cluster instead of being bypassed.
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make verify-legacy-policy-hook
       - name: Helm test
         id: helm-test
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make helm-test
@@ -913,6 +1591,10 @@ jobs:
         uses: ./.github/actions/kyverno/logs
       - name: Get logs from liveness pod
         if: failure() && steps.helm-test.outcome == 'failure'
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           if kubectl -n kyverno get pod kyverno-cleanup-controller-liveness --ignore-not-found -o name | grep -q .; then
             kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
@@ -922,6 +1604,7 @@ jobs:
 
   helm-uninstall:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-uninstall')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -934,6 +1617,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -950,11 +1650,19 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           export USE_CONFIG=kyverno-cleanup
@@ -963,6 +1671,10 @@ jobs:
         uses: ./.github/actions/kyverno/wait-ready
       - name: Uninstall kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           helm uninstall kyverno -n kyverno --wait --timeout 1m
@@ -972,6 +1684,7 @@ jobs:
 
   helm-upgrade:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-upgrade')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -984,6 +1697,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Install helm
         uses: ./.github/actions/tools/helm
       # create cluster
@@ -1002,11 +1732,19 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
       - name: Install kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           helm install kyverno --namespace kyverno --create-namespace --wait \
@@ -1016,6 +1754,10 @@ jobs:
         uses: ./.github/actions/kyverno/wait-ready
       - name: Upgrade kyverno
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make kind-install-kyverno
@@ -1028,6 +1770,7 @@ jobs:
 
   helm-upgrade-legacy-migration:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-upgrade-legacy-migration')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1044,6 +1787,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -1060,6 +1820,10 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
@@ -1071,6 +1835,10 @@ jobs:
         # their own merits (see scripts/verify-legacy-policy-gate.sh's steps
         # for the same rationale). Letting the check run for real here is
         # what actually exercises it in CI.
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           make verify-legacy-policy-migration
@@ -1080,6 +1848,7 @@ jobs:
 
   cert-manager-certificates:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'cert-manager-certificates')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1099,6 +1868,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -1107,11 +1893,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           install-cert-manager: 'true'
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'self-signed-certificates')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1131,6 +1919,23 @@ jobs:
         with:
           ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions and report script
+      # of the workflow commit, not the ones from the PR.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.untrusted-ref
+        shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -1139,4 +1944,5 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
