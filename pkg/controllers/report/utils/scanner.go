@@ -204,7 +204,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, err := engine.Handle(ctx, request, nil)
+			engineResponse, err := engine.Handle(ctx, request, mpolengine.NoTargetMatchConstraintPolicy())
 			patched := engineResponse.PatchedResource
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {

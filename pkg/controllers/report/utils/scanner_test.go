@@ -280,3 +280,83 @@ func TestFilterMatchConditionSkips(t *testing.T) {
 		})
 	}
 }
+
+// newTargetConstrainedMutatingPolicySpec returns a mutate-existing policy spec that
+// triggers on Pods and targets Deployments.
+func newTargetConstrainedMutatingPolicySpec() policiesv1beta1.MutatingPolicySpec {
+	enabled := true
+	return policiesv1beta1.MutatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{"CREATE"},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}},
+		},
+		TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+			MatchResources: admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE", "UPDATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+		},
+		EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+			MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+				Enabled: &enabled,
+			},
+		},
+		Mutations: []admissionregistrationv1alpha1.Mutation{{
+			PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+			JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+				Expression: `[JSONPatch{op: "add", path: "/metadata/labels/scanned", value: "true"}]`,
+			},
+		}},
+	}
+}
+
+// TestScanResource_MutatingPolicy_TargetMatchConstraints pins that the scanner
+// does not evaluate a mutate-existing policy with targetMatchConstraints against
+// its trigger resource. Such a policy mutates the target, not the trigger, so
+// evaluating it against the trigger applies the mutation to the wrong object.
+func TestScanResource_MutatingPolicy_TargetMatchConstraints(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy engineapi.GenericPolicy
+	}{{
+		name: "MutatingPolicy",
+		policy: engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-mp-target", ResourceVersion: "1"},
+			Spec:       newTargetConstrainedMutatingPolicySpec(),
+		}),
+	}, {
+		name: "NamespacedMutatingPolicy",
+		policy: engineapi.NewNamespacedMutatingPolicy(&policiesv1beta1.NamespacedMutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-nmp-target", Namespace: "test-ns", ResourceVersion: "1"},
+			Spec:       newTargetConstrainedMutatingPolicySpec(),
+		}),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource, gvr := newPodResource()
+			results := newTestScannerWithTypeConverter(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, tt.policy)
+			require.Len(t, results, 1)
+			for _, sr := range results {
+				require.NoError(t, sr.Error)
+				require.NotNil(t, sr.EngineResponse)
+				assert.Empty(t, sr.EngineResponse.PolicyResponse.Rules, "a policy with targetMatchConstraints must not be evaluated against its trigger resource")
+			}
+		})
+	}
+}
