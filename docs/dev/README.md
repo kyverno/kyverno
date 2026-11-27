@@ -19,6 +19,9 @@ For the `kyverno oci` bundle format, see: [docs/dev/oci/bundle-spec.md](oci/bund
 For the issues that track the PSS CEL policy updates each Pod Security Admission release needs, see:
 [psa-release-issues/README.md](psa-release-issues/README.md).
 
+For read-only GitHub Actions timing collection and offline SHA-matched reports, see
+[CI timing measurement](ci-timing.md).
+
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow
