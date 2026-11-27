@@ -1,6 +1,23 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Cherry pick
+# Single entry point for PR and issue comment commands. Ordinary comments match
+# no command, so the route job is skipped and no runner starts.
+#
+# Commands handled here:
+#   /cherry-pick <branch>       (PRs, write permission)
+#   /conformance                (PRs)
+#   /assign, /unassign          (prow, members or 'good first issue')
+#   /lgtm, /milestone           (prow)
+#
+# The prow action matches commands anywhere in the comment body, so the prow
+# filters use contains(); the other commands must start the comment. Comments
+# by bots never reach prow: review bots quote commands such as /lgtm in their
+# summaries, and prow would then reply that the bot can't apply the label.
+#
+# Comment bodies are untrusted: they are only read through expressions in
+# job-level conditions or env, never interpolated into run scripts.
+
+name: Comment commands
 
 permissions: {}
 
@@ -11,16 +28,37 @@ on:
       - edited
 
 jobs:
+  route:
+    name: Route comment command
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    if: |
+      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/cherry-pick')) ||
+      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/conformance')) ||
+      (github.event.comment.user.type != 'Bot' && (
+        contains(github.event.comment.body, '/assign') ||
+        contains(github.event.comment.body, '/unassign') ||
+        contains(github.event.comment.body, '/lgtm') ||
+        contains(github.event.comment.body, '/milestone')))
+    outputs:
+      cherry-pick: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/cherry-pick') && 'true' || 'false' }}
+      conformance: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/conformance') && 'true' || 'false' }}
+      prow-assign: ${{ github.event.comment.user.type != 'Bot' && (contains(github.event.comment.body, '/assign') || contains(github.event.comment.body, '/unassign')) && (contains(fromJson('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association) || contains(github.event.issue.labels.*.name, 'good first issue')) && 'true' || 'false' }}
+      prow: ${{ github.event.comment.user.type != 'Bot' && (contains(github.event.comment.body, '/lgtm') || contains(github.event.comment.body, '/milestone')) && 'true' || 'false' }}
+    steps:
+      - name: Record route
+        run: echo "Comment matched a command filter; dependent jobs check the route outputs."
+
   # /cherry-pick command, only send a message if PR is unmerged, cherry-pick if PR was already merged
-  execute:
+  cherry-pick:
     name: Cherry pick
+    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Holds the PR updater app secrets; its branch rules allow only main.
     environment: pr-updater-app
-    if: |
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/cherry-pick')
+    if: needs.route.outputs.cherry-pick == 'true'
     permissions:
       issues: write
       pull-requests: write
@@ -181,3 +219,112 @@ jobs:
         run: |
           echo "::error::Cherry-pick failed; see the workflow logs"
           exit 1
+
+  # Only the reaction needs write access; build and test jobs remain read-only.
+  conformance-acknowledge:
+    name: Acknowledge conformance request
+    needs: route
+    runs-on: ubuntu-latest
+    if: needs.route.outputs.conformance == 'true'
+    permissions:
+      issues: write
+    steps:
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
+
+  conformance-images:
+    name: Build test images
+    needs: route
+    runs-on: ubuntu-latest
+    if: needs.route.outputs.conformance == 'true'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Install Ko
+        uses: ./.github/actions/tools/ko
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          if-no-files-found: error
+
+  conformance-cli:
+    name: Build test CLI
+    needs: route
+    runs-on: ubuntu-latest
+    if: needs.route.outputs.conformance == 'true'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: Upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          if-no-files-found: error
+
+  conformance-tests:
+    name: Conformance tests
+    needs:
+      - route
+      - conformance-images
+      - conformance-cli
+    if: needs.route.outputs.conformance == 'true'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/tests-conformance.yaml
+
+  prow-assign:
+    name: Prow Assign
+    needs: route
+    # Non-members can self-assign issues labeled 'good first issue' only.
+    # Org members, owners, and collaborators can (un)assign anywhere.
+    if: needs.route.outputs.prow-assign == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+        with:
+          prow-commands: "/assign
+            /unassign"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  prow:
+    name: Prow
+    needs: route
+    if: needs.route.outputs.prow == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+        with:
+          prow-commands: "/lgtm
+            /milestone"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
