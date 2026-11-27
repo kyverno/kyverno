@@ -823,3 +823,84 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 		})
 	}
 }
+
+// TestQualifyMutatingMetadataType covers the constructor type names a pod-shaped
+// mutating expression carries. Metadata constructors and the constructors of
+// metadata's sub-objects move under the workload's pod template; plain selectors
+// stay untouched for ApplyMutatingCEL.
+func TestQualifyMutatingMetadataType(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		expr   string
+		want   string
+	}{
+		{
+			name:   "deployments metadata constructor",
+			config: "deployments",
+			expr:   `Object{metadata: Object.metadata{labels: {'team': 'dev'}}}`,
+			want:   `Object{metadata: Object.spec.template.metadata{labels: {'team': 'dev'}}}`,
+		},
+		{
+			name:   "deployments metadata constructor after a line comment",
+			config: "deployments",
+			expr: `Object{metadata: Object.metadata // pod template metadata
+{labels: {'team': 'dev'}}}`,
+			want: `Object{metadata: Object.spec.template.metadata // pod template metadata
+{labels: {'team': 'dev'}}}`,
+		},
+		{
+			name:   "deployments metadata constructor after a block comment",
+			config: "deployments",
+			expr:   `Object{metadata: Object.metadata /* pod template metadata */ {labels: {'team': 'dev'}}}`,
+			want:   `Object{metadata: Object.spec.template.metadata /* pod template metadata */ {labels: {'team': 'dev'}}}`,
+		},
+		{
+			name:   "deployments descendant metadata constructor",
+			config: "deployments",
+			expr:   `Object{metadata: Object.metadata{ownerReferences: [Object.metadata.ownerReferences{name: 'nginx'}]}}`,
+			want:   `Object{metadata: Object.spec.template.metadata{ownerReferences: [Object.spec.template.metadata.ownerReferences{name: 'nginx'}]}}`,
+		},
+		{
+			name:   "deployments descendant metadata constructor with comment trivia",
+			config: "deployments",
+			expr:   `Object{metadata: Object.metadata /* c */ .ownerReferences /* c */ {name: 'nginx'}}`,
+			want:   `Object{metadata: Object.spec.template.metadata /* c */ .ownerReferences /* c */ {name: 'nginx'}}`,
+		},
+		{
+			name:   "deployments metadata selector is unchanged",
+			config: "deployments",
+			expr:   `Object{metadata: Object.metadata.labels}`,
+			want:   `Object{metadata: Object.metadata.labels}`,
+		},
+		{
+			name:   "deployments metadata selector compared to a map literal is unchanged",
+			config: "deployments",
+			expr:   `Object.metadata.labels == {'team': 'dev'}`,
+			want:   `Object.metadata.labels == {'team': 'dev'}`,
+		},
+		{
+			name:   "cronjobs metadata constructor",
+			config: "cronjobs",
+			expr:   `Object{metadata: Object.metadata{labels: {'team': 'dev'}}}`,
+			want:   `Object{metadata: Object.spec.jobTemplate.spec.template.metadata{labels: {'team': 'dev'}}}`,
+		},
+		{
+			name:   "cronjobs descendant metadata constructor",
+			config: "cronjobs",
+			expr:   `Object{metadata: Object.metadata{ownerReferences: [Object.metadata.ownerReferences{name: 'nginx'}]}}`,
+			want:   `Object{metadata: Object.spec.jobTemplate.spec.template.metadata{ownerReferences: [Object.spec.jobTemplate.spec.template.metadata.ownerReferences{name: 'nginx'}]}}`,
+		},
+		{
+			name:   "string literal is not rewritten",
+			config: "deployments",
+			expr:   `'Object.metadata{' + string(Object.metadata{labels: {'team': 'dev'}})`,
+			want:   `'Object.metadata{' + string(Object.spec.template.metadata{labels: {'team': 'dev'}})`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, string(QualifyMutatingMetadataType([]byte(tt.expr), tt.config)))
+		})
+	}
+}

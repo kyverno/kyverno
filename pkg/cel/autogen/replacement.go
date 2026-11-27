@@ -51,7 +51,9 @@ func ApplyMutatingCEL(data []byte, config string) []byte {
 // selector, so it keeps its unwrapped name. The ApplyConfiguration compiler
 // requires every nested constructor's type name to match its field path from
 // the root, and metadata sits under spec.template (deeper for a CronJob) once
-// the pod-shaped mutation is wrapped.
+// the pod-shaped mutation is wrapped. Constructors of metadata's own
+// sub-objects (e.g. Object.metadata.ownerReferences{...}) carry the same nested
+// path and are qualified too; plain selectors are left to ApplyMutatingCEL.
 func QualifyMutatingMetadataType(data []byte, config string) []byte {
 	_, metaRepl := mutatingTemplatePaths(config)
 	root := []byte("Object")
@@ -68,17 +70,69 @@ func QualifyMutatingMetadataType(data []byte, config string) []byte {
 			return 0, nil, false
 		}
 		after := data[i+len(root)+selectorLen:]
-		// A type name is only carried by a constructor, so require '{' (after
-		// optional whitespace). Selector forms are left to ApplyMutatingCEL.
-		idx := 0
-		for idx < len(after) && isWhitespaceByte(after[idx]) {
-			idx++
-		}
-		if idx >= len(after) || after[idx] != '{' {
+		// A type name is only carried by a constructor, so require the selector
+		// chain to end at a constructor body: Object.metadata{...}, and the
+		// descendant constructors of metadata's sub-objects, e.g.
+		// Object.metadata.ownerReferences{...}. Selector forms are left to
+		// ApplyMutatingCEL. Comments and whitespace between a type name and its
+		// brace are CEL trivia.
+		if !isConstructorTypeName(after) {
 			return 0, nil, false
 		}
 		return len(root) + selectorLen, to, true
 	})
+}
+
+// isConstructorTypeName reports whether data continues a constructor type name
+// with a chain of field selectors that ends at a constructor body ('{').
+func isConstructorTypeName(data []byte) bool {
+	idx := skipCELTrivia(data, 0)
+	for {
+		if idx >= len(data) {
+			return false
+		}
+		if data[idx] == '{' {
+			return true
+		}
+		if data[idx] != '.' {
+			return false
+		}
+		idx = skipCELTrivia(data, idx+1)
+		start := idx
+		for idx < len(data) && isIdentifierByte(data[idx]) {
+			idx++
+		}
+		if idx == start {
+			return false
+		}
+		idx = skipCELTrivia(data, idx)
+	}
+}
+
+// skipCELTrivia returns the index of the first byte at or after idx that is
+// neither whitespace nor part of a CEL comment.
+func skipCELTrivia(data []byte, idx int) int {
+	for idx < len(data) {
+		switch {
+		case isWhitespaceByte(data[idx]):
+			idx++
+		case bytes.HasPrefix(data[idx:], []byte("//")):
+			newline := bytes.IndexByte(data[idx:], '\n')
+			if newline < 0 {
+				return len(data)
+			}
+			idx += newline + 1
+		case bytes.HasPrefix(data[idx:], []byte("/*")):
+			end := bytes.Index(data[idx+2:], []byte("*/"))
+			if end < 0 {
+				return len(data)
+			}
+			idx += 2 + end + 2
+		default:
+			return idx
+		}
+	}
+	return idx
 }
 
 // mutatingTemplatePaths returns the workload pod template paths that a
