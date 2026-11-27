@@ -1,6 +1,6 @@
 # Title
 
-This creates a validating admission policy wit the reporting disabled label
+This creates a validating admission policy with the reporting disabled label
 
 ## Expected Behavior
 
