@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 )
 
@@ -22,21 +23,14 @@ func NewProvider(
 	compiler dpolcompiler.Compiler,
 	policies []policiesv1beta1.DeletingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
+	scope engine.ExceptionScope,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		if policy == nil {
 			continue
 		}
-		policyKind := policy.GetKind()
-		var matchedExceptions []*policiesv1beta1.PolicyException
-		for _, polex := range exceptions {
-			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == policy.GetName() && ref.Kind == policyKind {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
-			}
-		}
+		matchedExceptions := scope.Select(exceptions, policy.GetKind(), policy.GetName(), policy.GetNamespace())
 		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())

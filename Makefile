@@ -1020,6 +1020,11 @@ verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the ba
 	@echo Verify background controller RBAC... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
 
+.PHONY: verify-policyexceptions-namespace-guard
+verify-policyexceptions-namespace-guard: helm-setup-dependency-charts ## Verify the chart refuses to render with policyExceptions.enabled=true and an empty namespace, globally and per controller featuresOverride (no cluster needed)
+	@echo Verify policyExceptions namespace guard... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-policyexceptions-namespace-guard.sh
+
 .PHONY: verify-policies-psa-version
 verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)
 	@echo Verify podSecurityVersion rendering... >&2
