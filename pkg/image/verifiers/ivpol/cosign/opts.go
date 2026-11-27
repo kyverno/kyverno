@@ -84,6 +84,9 @@ func countPEMCertBlocks(pem []byte) int {
 }
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
+	if err := subjectExpressionEvaluated(att); err != nil {
+		return nil, err
+	}
 	// Each verification owns the options appended for its source and context.
 	baseROpts = slices.Clone(baseROpts)
 	// Key/certificate verification with the transparency log ignored needs no
@@ -292,6 +295,21 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		return opts, nil
 	}
 	return nil, fmt.Errorf("cosign verifier needs to have one key, keyless or certificate fields set")
+}
+
+// subjectExpressionEvaluated rejects a keyless identity whose subjectExpression
+// was not resolved into subjectRegExp. Leaving the subject empty makes Cosign
+// accept any subject for that issuer.
+func subjectExpressionEvaluated(att *v1beta1.Cosign) error {
+	if att == nil || att.Keyless == nil {
+		return nil
+	}
+	for i, id := range att.Keyless.Identities {
+		if id.SubjectExpression != "" && id.SubjectRegExp == "" {
+			return fmt.Errorf("identity %d subjectExpression was not evaluated", i)
+		}
+	}
+	return nil
 }
 
 // sigstoreTrustMaterial holds all TUF-derived trust material fetched by

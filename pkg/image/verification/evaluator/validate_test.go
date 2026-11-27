@@ -235,6 +235,12 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInAttestors(t *testing.T)
 			name:     "notary tsa certs expression",
 			attestor: policiesv1beta1.Attestor{Name: "att", Notary: &policiesv1beta1.Notary{TSACerts: gctxExpr}},
 		},
+		{
+			name: "cosign subject expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Keyless: &policiesv1beta1.Keyless{Identities: []policiesv1beta1.Identity{{
+				SubjectExpression: `globalContext.get("cluster-entry", "")`,
+			}}}}},
+		},
 	}
 
 	for _, tt := range tests {

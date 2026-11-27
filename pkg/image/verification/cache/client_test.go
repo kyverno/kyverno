@@ -244,6 +244,32 @@ func Test_Cache_shares_entries_for_equivalent_digest_references(t *testing.T) {
 // It also verifies that differing resolved trust materials produce differing
 // cache keys and cache misses even when dynamic expressions are unchanged.
 func Test_generateKey_binds_resolved_material_not_expressions(t *testing.T) {
+	t.Run("keyless subject expression", func(t *testing.T) {
+		static := v1beta1.Attestor{Cosign: &v1beta1.Cosign{Keyless: &v1beta1.Keyless{Identities: []v1beta1.Identity{{
+			Issuer:        "https://token.actions.githubusercontent.com",
+			SubjectRegExp: `^https://github.com/allowed/repo/`,
+		}}}}}
+		withExpr := static.DeepCopy()
+		withExpr.Cosign.Keyless.Identities[0].SubjectExpression = `"^https://github.com/" + variables.repo`
+		otherExpr := static.DeepCopy()
+		otherExpr.Cosign.Keyless.Identities[0].SubjectExpression = `variables.repo`
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{static}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{*withExpr}, nil)
+		require.NoError(t, err)
+		k3, err := generateKey(testDigestA, []v1beta1.Attestor{*otherExpr}, nil)
+		require.NoError(t, err)
+		assert.Equal(t, k1, k2)
+		assert.Equal(t, k2, k3)
+
+		different := static.DeepCopy()
+		different.Cosign.Keyless.Identities[0].SubjectRegExp = `^https://github.com/other/repo/`
+		kDiff, err := generateKey(testDigestA, []v1beta1.Attestor{*different}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiff)
+	})
+
 	t.Run("cosign key expressions", func(t *testing.T) {
 		inline := keyAttestor("signer", "KEY-MATERIAL")
 		withExpr1 := keyAttestor("signer", "KEY-MATERIAL")
