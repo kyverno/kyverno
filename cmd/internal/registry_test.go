@@ -2,9 +2,19 @@ package internal
 
 import (
 	"context"
+	"flag"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/regcreds"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -85,5 +95,116 @@ func TestRegistrySecretListerKeepsCacheOnlyDefault(t *testing.T) {
 		_, err := kubeutils.ScopeSecretLister(lister, "").Secrets(policyNamespace).Get("regcred")
 		require.True(t, apierrors.IsNotFound(err), "an empty namespace must not enable live reads, got %v", err)
 		assert.Empty(t, client.Actions())
+	})
+}
+
+func TestRegistryResponseHeaderTimeoutFlag(t *testing.T) {
+	if flag.Lookup("registryResponseHeaderTimeout") == nil {
+		initRegistryClientFlags()
+	}
+	f := flag.Lookup("registryResponseHeaderTimeout")
+	require.NotNil(t, f)
+	assert.Equal(t, "0s", f.DefValue)
+
+	prev := registryResponseHeaderTimeout
+	t.Cleanup(func() { registryResponseHeaderTimeout = prev })
+
+	require.NoError(t, f.Value.Set("15s"))
+	assert.Equal(t, 15*time.Second, registryResponseHeaderTimeout)
+}
+
+func setupRegistryTimeoutTest(t *testing.T) {
+	t.Helper()
+	prev := regcreds.DefaultTransport.ResponseHeaderTimeout
+	prevOnce := setRegistryResponseHeaderTimeoutOnce
+	t.Cleanup(func() {
+		regcreds.DefaultTransport.ResponseHeaderTimeout = prev
+		setRegistryResponseHeaderTimeoutOnce = prevOnce
+		regcreds.DefaultTransport.CloseIdleConnections()
+	})
+	setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+}
+
+func TestSetRegistryResponseHeaderTimeout(t *testing.T) {
+	// DefaultTransport is process-global, so this test must not run in parallel.
+	setupRegistryTimeoutTest(t)
+
+	err := setRegistryResponseHeaderTimeout(-time.Second)
+	require.Error(t, err)
+
+	require.NoError(t, setRegistryResponseHeaderTimeout(15*time.Second))
+	assert.Equal(t, 15*time.Second, regcreds.DefaultTransport.ResponseHeaderTimeout)
+
+	// sync.Once must prevent subsequent callers from overwriting the value.
+	require.NoError(t, setRegistryResponseHeaderTimeout(30*time.Second))
+	assert.Equal(t, 15*time.Second, regcreds.DefaultTransport.ResponseHeaderTimeout)
+
+	setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+	require.NoError(t, setRegistryResponseHeaderTimeout(0))
+	assert.Equal(t, time.Duration(0), regcreds.DefaultTransport.ResponseHeaderTimeout)
+}
+
+func TestRegistryResponseHeaderTimeoutAppliesToAllPaths(t *testing.T) {
+	// DefaultTransport is process-global, so this test must not run in parallel.
+	setupRegistryTimeoutTest(t)
+
+	t.Run("times out stalled response headers on both global client and DefaultOpts paths", func(t *testing.T) {
+		setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+		require.NoError(t, setRegistryResponseHeaderTimeout(50*time.Millisecond))
+
+		unblock := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-unblock:
+			case <-r.Context().Done():
+			}
+		}))
+		t.Cleanup(func() {
+			close(unblock)
+			srv.Close()
+		})
+
+		imageRef := strings.TrimPrefix(srv.URL, "http://") + "/test/image:latest"
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rc := registryclient.New(registryclient.WithAllowInsecureRegistry(true))
+		_, err := rc.FetchImageDescriptor(ctx, imageRef)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timeout awaiting response headers")
+
+		ref, err := name.ParseReference(imageRef, name.Insecure)
+		require.NoError(t, err)
+		defaultOpts := regcreds.DefaultOpts()
+		remoteOpts := append(defaultOpts[:], remote.WithContext(ctx))
+		_, err = remote.Get(ref, remoteOpts...)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timeout awaiting response headers")
+	})
+
+	t.Run("zero disables response header timeout", func(t *testing.T) {
+		setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+		require.NoError(t, setRegistryResponseHeaderTimeout(0))
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-time.After(100 * time.Millisecond):
+				w.WriteHeader(http.StatusNotFound)
+			case <-r.Context().Done():
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		imageRef := strings.TrimPrefix(srv.URL, "http://") + "/test/image:latest"
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rc := registryclient.New(registryclient.WithAllowInsecureRegistry(true))
+		_, err := rc.FetchImageDescriptor(ctx, imageRef)
+		require.Error(t, err)
+		require.NoError(t, ctx.Err())
+		assert.NotErrorIs(t, err, context.DeadlineExceeded)
+		assert.NotContains(t, err.Error(), "timeout awaiting response headers")
+		assert.Contains(t, err.Error(), "404")
 	})
 }

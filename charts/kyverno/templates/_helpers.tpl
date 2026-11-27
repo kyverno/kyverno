@@ -103,6 +103,9 @@
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
+  {{- with .responseHeaderTimeout -}}
+    {{- $flags = append $flags (print "--registryResponseHeaderTimeout=" .) -}}
+  {{- end -}}
 {{- end -}}
 {{- with .ttlController -}}
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}

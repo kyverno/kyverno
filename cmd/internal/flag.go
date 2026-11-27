@@ -57,9 +57,10 @@ var (
 	tufRoot             string
 	tufRootRaw          string
 	// registry client
-	imagePullSecrets          string
-	allowInsecureRegistry     bool
-	registryCredentialHelpers string
+	imagePullSecrets              string
+	allowInsecureRegistry         bool
+	registryCredentialHelpers     string
+	registryResponseHeaderTimeout time.Duration
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -164,6 +165,7 @@ func initRegistryClientFlags() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
 	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a sigstore bundle or attestation payload read during image validating policy verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
+	flag.DurationVar(&registryResponseHeaderTimeout, "registryResponseHeaderTimeout", 0, "Timeout for waiting for response headers from image registries. 0 means no timeout.")
 }
 
 func initImageVerifyCacheFlags() {

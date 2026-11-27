@@ -477,6 +477,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
+| features.registryClient.responseHeaderTimeout | string | `"0s"` | Timeout for waiting for response headers from image registries. A value of 0s means no timeout. |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
 | features.tuf.root | string | `nil` | Path to Tuf root |
