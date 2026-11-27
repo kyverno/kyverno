@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -139,9 +140,29 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 				if !ok {
 					continue
 				}
-				if cached, ok := watcher.metadataCache[uid]; ok && cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
-					wm.revertDownstream(watcher, uid, s.obj)
+				cached, ok := watcher.metadataCache[uid]
+				if !ok {
+					// the cache entry was dropped while the window was open;
+					// there is nothing to revert or replay.
+					continue
 				}
+				if cached.Hash == "" {
+					// the entry was invalidated (see InvalidateDownstreams) while the
+					// window was open; an invalidated entry must never propagate from
+					// either path, so skip it without reverting or replaying.
+					continue
+				}
+				if cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
+					// a real (unauthorized) edit was skipped inside the window:
+					// revert it so its transient value is not distributed.
+					wm.revertDownstream(watcher, uid, s.obj)
+					continue
+				}
+				// The skipped object matches the refreshed cache: it was an
+				// accepted hub update that arrived while the generate write for
+				// this downstream was in flight. Forward it to downstreams that
+				// clone from this object now that the cache is settled.
+				wm.syncSourceDownstreams(watcher, s.obj, uid)
 			}
 		})
 	}
@@ -818,94 +839,140 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 
 	wm.log.V(4).Info("Resource updated", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
-	if exists {
-		uid := obj.GetUID()
-		// the metadata cache is used to track the generated resources.
-		// if the resource is not in the cache, it means it is one of the following:
-		// - it is the source resource with sync enabled, and we need to update the downstream resources.
-		// - it is the source resource with sync disabled, and we do nothing.
-		// - it is the downstream resource with sync disabled, and we do nothing.
-		if _, ok := watcher.metadataCache[uid]; !ok {
-			source := obj.DeepCopy()
-			// clean up parameters that shouldn't be copied
-			source.SetUID("")
-			source.SetSelfLink("")
-			source.SetCreationTimestamp(metav1.Time{})
-			source.SetManagedFields(nil)
-			source.SetResourceVersion("")
-			// fetch downstreams that have the source UID label.
-			sourceLabel := map[string]string{
-				common.GenerateSourceUIDLabel: string(uid),
+	if !exists {
+		return
+	}
+	uid := obj.GetUID()
+	if _, ok := watcher.metadataCache[uid]; ok {
+		// if the resource is already in the cache, then it is the downstream resource that has been updated and it is sync enabled.
+		hash := watcher.metadataCache[uid].Hash
+		// if the cached resource has not been invalidated and is different from the hash of the resource,
+		// then we need to revert the downstream resource as it means that it has been updated by the user.
+		if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
+			cached := watcher.metadataCache[uid]
+			cachedLabels := cached.Labels
+			policyKey := cached.PolicyKey
+			if policyKey == "" {
+				policyKey = cachedLabels[common.GeneratePolicyLabel]
 			}
-			selector := &metav1.LabelSelector{MatchLabels: sourceLabel}
-			downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
-			if err != nil {
-				wm.log.Error(err, "failed to list downstream resources")
+			key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+			if pending := wm.pendingGenerates[key]; pending != nil {
+				// Likely Kyverno's own write racing the cache refresh (see
+				// BeginGenerate); re-checked when the window closes.
+				pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
+				wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
+				return
 			}
-			for _, downstream := range downstreams.Items {
-				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
-				cached, exists := watcher.metadataCache[downstream.GetUID()]
-				if !exists {
-					continue
-				}
-				// update the downstream resources with the source information.
-				newResource := &unstructured.Unstructured{}
-				newResource.SetUnstructuredContent(source.UnstructuredContent())
-				newResource.SetName(downstream.GetName())
-				newResource.SetNamespace(downstream.GetNamespace())
-				newResource.SetKind(downstream.GetKind())
-				newResource.SetAPIVersion(downstream.GetAPIVersion())
-				newResource.SetLabels(downstream.GetLabels())
-				// The content comes from the source, whose resourceVersion means nothing for the
-				// downstream, so carry the downstream's own. Custom resources reject an update that
-				// has no resourceVersion, which used to leave every CRD downstream unsynced.
-				newResource.SetResourceVersion(downstream.GetResourceVersion())
-				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
-				if err != nil {
-					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-				} else {
-					wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-					hash := reportutils.CalculateResourceHash(*newResource)
-					if cached.ServerSideApply && written != nil {
-						// the apply keeps what other managers own on the downstream, so track the
-						// object it returned rather than the source content alone
-						hash = reportutils.CalculateResourceHash(*written)
-					}
-					// update the metadata cache for the downstream resource
-					watcher.metadataCache[downstream.GetUID()] = Resource{
-						Name:            downstream.GetName(),
-						Namespace:       downstream.GetNamespace(),
-						Labels:          downstream.GetLabels(),
-						Hash:            hash,
-						Data:            newResource,
-						ServerSideApply: cached.ServerSideApply,
-						PolicyKey:       cached.PolicyKey,
-					}
-					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
-				}
+			wm.revertDownstream(watcher, uid, obj)
+			// an unauthorized transient value must not be distributed as a clone source
+			return
+		}
+		// An invalidated entry (Hash == "") is no longer valid and should not be
+		// restored from the cache or used as a clone source. It is kept only so it
+		// can be deleted later, so never propagate it downstream.
+		if hash == "" {
+			return
+		}
+	}
+	// if the resource is not in the cache, it is a source resource (with or without sync enabled).
+	// if it is in the cache and was not reverted, it is an accepted downstream state that may also
+	// be the clone source for another policy. In both cases, update downstreams that clone from it.
+	wm.syncSourceDownstreams(watcher, obj, uid)
+}
+
+func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructured.Unstructured, uid types.UID) {
+	source := obj.DeepCopy()
+	// clean up parameters that shouldn't be copied
+	source.SetUID("")
+	source.SetSelfLink("")
+	source.SetCreationTimestamp(metav1.Time{})
+	source.SetManagedFields(nil)
+	source.SetResourceVersion("")
+	// fetch downstreams that have the source UID label.
+	sourceLabel := map[string]string{
+		common.GenerateSourceUIDLabel: string(uid),
+	}
+	selector := &metav1.LabelSelector{MatchLabels: sourceLabel}
+	// The whole list+retry sequence is bounded so a hung API call cannot block
+	// SyncWatchers, cache invalidation and unrelated watch events behind wm.lock
+	// indefinitely. A healthy API server answers in milliseconds; 5s comfortably
+	// exceeds the 300ms max backoff plus three healthy list latencies.
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	var downstreams *unstructured.UnstructuredList
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(attempt) * 100 * time.Millisecond
+			wm.log.Info("retrying downstream resource list", "attempt", attempt+1, "backoff", backoff)
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				wm.log.Error(nil, "downstream list retry abandoned after timeout", "timeout", 5*time.Second)
+				return
 			}
+		}
+		downstreams, err = wm.client.ListResource(ctx, obj.GetAPIVersion(), obj.GetKind(), "", selector)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		wm.log.Error(err, "failed to list downstream resources")
+		return
+	}
+	for _, downstream := range downstreams.Items {
+		// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
+		cached, exists := watcher.metadataCache[downstream.GetUID()]
+		if !exists {
+			continue
+		}
+		if cached.Hash == "" {
+			// invalidated by InvalidateDownstreams: kept only so it can be
+			// deleted later; never restore it with source content.
+			continue
+		}
+		// update the downstream resources with the source information.
+		newResource := source.DeepCopy()
+		newResource.SetName(downstream.GetName())
+		newResource.SetNamespace(downstream.GetNamespace())
+		newResource.SetKind(downstream.GetKind())
+		newResource.SetAPIVersion(downstream.GetAPIVersion())
+		newResource.SetLabels(downstream.GetLabels())
+		// The content comes from the source, whose resourceVersion means nothing for the
+		// downstream, so carry the downstream's own. Custom resources reject an update that
+		// has no resourceVersion, which used to leave every CRD downstream unsynced.
+		newResource.SetResourceVersion(downstream.GetResourceVersion())
+		// Skip the write when the downstream already holds exactly this content. A
+		// clone cycle (A->B->A) otherwise re-emits a Modified event on every hop and
+		// never converges. For SSA downstreams the stored hash may differ (other
+		// managers' fields), so a mismatch simply proceeds exactly as today.
+		if reportutils.CalculateResourceHash(*newResource) == cached.Hash {
+			wm.log.V(4).Info("downstream resource already up to date, skipping write", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+			continue
+		}
+		written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
+		if err != nil {
+			wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 		} else {
-			// if the resource is already in the cache, then it is the downstream resource that has been updated and it is sync enabled.
-			hash := watcher.metadataCache[uid].Hash
-			// if the cached resource has not been invalidated and is different from the hash of the resource,
-			// then we need to revert the downstream resource as it means that it has been updated by the user.
-			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
-				cached := watcher.metadataCache[uid]
-				cachedLabels := cached.Labels
-				policyKey := cached.PolicyKey
-				if policyKey == "" {
-					policyKey = cachedLabels[common.GeneratePolicyLabel]
-				}
-				key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
-				if pending := wm.pendingGenerates[key]; pending != nil {
-					// Likely Kyverno's own write racing the cache refresh (see
-					// BeginGenerate); re-checked when the window closes.
-					pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
-					wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
-					return
-				}
-				wm.revertDownstream(watcher, uid, obj)
+			wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+			hash := reportutils.CalculateResourceHash(*newResource)
+			if cached.ServerSideApply && written != nil {
+				// the apply keeps what other managers own on the downstream, so track the
+				// object it returned rather than the source content alone
+				hash = reportutils.CalculateResourceHash(*written)
 			}
+			// update the metadata cache for the downstream resource
+			watcher.metadataCache[downstream.GetUID()] = Resource{
+				Name:            downstream.GetName(),
+				Namespace:       downstream.GetNamespace(),
+				Labels:          downstream.GetLabels(),
+				Hash:            hash,
+				Data:            newResource,
+				ServerSideApply: cached.ServerSideApply,
+				PolicyKey:       cached.PolicyKey,
+			}
+			wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
 		}
 	}
 }
@@ -959,9 +1026,12 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 // using server-side apply applies it. The labels are the live downstream's, so the apply keeps
 // only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
 // before, since leaving those out of the apply would remove them. Otherwise the downstream is
-// replaced with an update.
+// replaced with an update, which keeps the live downstream's finalizers and owner references so
+// an accepted hub update never overwrites the leaf's own metadata with the source's.
 func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
+		newResource.SetFinalizers(downstream.GetFinalizers())
+		newResource.SetOwnerReferences(downstream.GetOwnerReferences())
 		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
