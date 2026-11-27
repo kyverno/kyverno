@@ -753,6 +753,24 @@ func TestRewriteExceptions(t *testing.T) {
 			config:     autogen.AutogenDefaults,
 			want:       []string{"'object.spec'"},
 		},
+		{
+			name:       "cronjobs already controller-shaped matchCondition is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.size() > 0 : false", "", "")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.size() > 0 : false"},
+		},
+		{
+			name:       "deployments already controller-shaped validation expression is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("", "object.spec.template.spec.containers.size() > 0", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.size() > 0"},
+		},
+		{
+			name:       "cronjobs pod-shaped part is rewritten while controller-shaped part is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.size() > 0 && object.spec.jobTemplate.spec.template.spec.containers.size() > 0", "", "")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"object.spec.jobTemplate.spec.template.spec.containers.size() > 0 && object.spec.jobTemplate.spec.template.spec.containers.size() > 0"},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
