@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared-target
+  namespace: shared-target-ns
+data:
+  registered: ""
