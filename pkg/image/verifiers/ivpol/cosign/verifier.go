@@ -333,6 +333,14 @@ func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, trustedMate
 	return ignoreTlog && !useSignedTimestamps && trustedMaterial != nil
 }
 
+// shouldIgnoreUnverifiedBundle reports whether a false bundleVerified result
+// from cosign may be tolerated because the transparency log check is disabled.
+// Keyed strictly on InsecureIgnoreTlog (not InsecureIgnoreSCT) so ignoring
+// certificate SCTs never bypasses transparency-log verification.
+func shouldIgnoreUnverifiedBundle(c *policiesv1beta1.Cosign) bool {
+	return c != nil && c.CTLog != nil && c.CTLog.InsecureIgnoreTlog
+}
+
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
 	if attestor.Cosign == nil {
 		return fmt.Errorf("cosign verifier only supports cosign attestor")
@@ -436,9 +444,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		err := fmt.Errorf("cosign bundle verification failed")
-		logger.Error(err, "image verification failed")
-		return err
+		if !shouldIgnoreUnverifiedBundle(attestor.Cosign) {
+			err := fmt.Errorf("cosign bundle verification failed")
+			logger.Error(err, "image verification failed")
+			return err
+		}
 	}
 
 	checkedTypes := []string{}

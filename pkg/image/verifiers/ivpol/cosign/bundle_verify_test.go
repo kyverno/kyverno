@@ -1,19 +1,35 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/oci/mutate"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
+	ocistatic "github.com/sigstore/cosign/v3/pkg/oci/static"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/sign"
+	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -366,4 +382,157 @@ func Test_V3Bundle_MultipleAttestors_PreservesNewestAcrossEvaluationOrder(t *tes
 		require.True(t, ok)
 		assert.Equal(t, "new", pred["version"], "newest attestation should remain selected even after >512 images are evaluated")
 	}
+}
+
+// attestV2 attaches a cosign v2 keyed DSSE in-toto attestation (no Rekor/tlog
+// entry, mirroring `cosign attest --key ... --tlog-upload=false`) for the image
+// at repo:tag and returns the PEM public key that verifies it.
+func attestV2(t *testing.T, repo name.Repository, tag, subjectDigestHex, predicateType, predicateJSON string) string {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	pubDER, err := x509.MarshalPKIXPublicKey(priv.Public())
+	require.NoError(t, err)
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+
+	ref, err := name.ParseReference(repo.Tag(tag).String())
+	require.NoError(t, err)
+	se, err := ociremote.SignedEntity(ref)
+	require.NoError(t, err)
+
+	if subjectDigestHex == "" {
+		d, err := se.(interface{ Digest() (v1.Hash, error) }).Digest()
+		require.NoError(t, err)
+		subjectDigestHex = d.Hex
+	}
+	statement := fmt.Sprintf(
+		`{"_type":"https://in-toto.io/Statement/v1","predicateType":%q,"subject":[{"name":"subject","digest":{"sha256":%q}}],"predicate":%s}`,
+		predicateType, subjectDigestHex, predicateJSON,
+	)
+
+	signer, err := signature.LoadECDSASignerVerifier(priv, crypto.SHA256)
+	require.NoError(t, err)
+	wrapped := dsse.WrapSigner(signer, "application/vnd.in-toto+json")
+	signedEnv, err := wrapped.SignMessage(bytes.NewReader([]byte(statement)))
+	require.NoError(t, err)
+
+	ociAtt, err := ocistatic.NewAttestation(signedEnv, ocistatic.WithLayerMediaType(types.MediaType("application/vnd.dsse.envelope.v1+json")))
+	require.NoError(t, err)
+	newSE, err := mutate.AttachAttestationToEntity(se, ociAtt)
+	require.NoError(t, err)
+	require.NoError(t, ociremote.WriteAttestations(repo, newSE))
+	return string(pubPEM)
+}
+
+// Test_V2Attestation_Keyed_IgnoreTlog reproduces issue #17109: a keyed cosign v2
+// attestation created without a transparency log entry (`--tlog-upload=false`)
+// must verify and populate the extracted in-toto payload when
+// `ctlog.insecureIgnoreTlog: true` is configured, while still failing on a
+// wrong key, wrong predicate type, mismatched subject digest, or when
+// `insecureIgnoreTlog` is false.
+func Test_V2Attestation_Keyed_IgnoreTlog(t *testing.T) {
+	const predicateType = "https://cyclonedx.org/bom"
+
+	t.Run("valid keyed v2 attestation verifies with insecureIgnoreTlog", func(t *testing.T) {
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		pubPEM := attestV2(t, repo, "subject", "", predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{Name: "keyed", Cosign: keyAttestorFor(pubPEM)}
+		attestation := &v1beta1.Attestation{Name: "sbom", InToto: &v1beta1.InToto{Type: predicateType}}
+
+		require.NoError(t, v.VerifyAttestationSignature(context.Background(), img, attestation, attestor))
+
+		got, err := img.GetPayload(*attestation)
+		require.NoError(t, err)
+		payloadMap, ok := got.(map[string]any)
+		require.True(t, ok)
+		pred, ok := payloadMap["predicate"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "CycloneDX", pred["bomFormat"])
+	})
+
+	t.Run("wrong key still fails with insecureIgnoreTlog", func(t *testing.T) {
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		attestV2(t, repo, "subject", "", predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{Name: "wrong-key", Cosign: keyAttestorFor(otherPublicKey(t))}
+		attestation := &v1beta1.Attestation{Name: "sbom", InToto: &v1beta1.InToto{Type: predicateType}}
+
+		require.Error(t, v.VerifyAttestationSignature(context.Background(), img, attestation, attestor))
+	})
+
+	t.Run("wrong predicate type still fails with insecureIgnoreTlog", func(t *testing.T) {
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		pubPEM := attestV2(t, repo, "subject", "", predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{Name: "keyed", Cosign: keyAttestorFor(pubPEM)}
+		attestation := &v1beta1.Attestation{Name: "other", InToto: &v1beta1.InToto{Type: "https://slsa.dev/provenance/v1"}}
+
+		require.Error(t, v.VerifyAttestationSignature(context.Background(), img, attestation, attestor))
+	})
+
+	t.Run("subject digest mismatch still fails with insecureIgnoreTlog", func(t *testing.T) {
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		wrongDigest := strings.Repeat("0", 64)
+		pubPEM := attestV2(t, repo, "subject", wrongDigest, predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{Name: "keyed", Cosign: keyAttestorFor(pubPEM)}
+		attestation := &v1beta1.Attestation{Name: "sbom", InToto: &v1beta1.InToto{Type: predicateType}}
+
+		require.Error(t, v.VerifyAttestationSignature(context.Background(), img, attestation, attestor))
+	})
+
+	t.Run("missing tlog still fails when insecureIgnoreTlog is false even if insecureIgnoreSCT is true", func(t *testing.T) {
+		vs, _ := newPrivateSigstore(t)
+		tr, err := root.NewTrustedRoot(root.TrustedRootMediaType01, vs.FulcioCertificateAuthorities(), vs.CTLogs(), vs.TimestampingAuthorities(), vs.RekorLogs())
+		require.NoError(t, err)
+		trJSON := trustedRootJSON(t, tr)
+
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		pubPEM := attestV2(t, repo, "subject", "", predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		tufCalls := stubTufUnreachable(t)
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{
+			Name: "keyed-tlog-required",
+			Cosign: &v1beta1.Cosign{
+				Key:         &v1beta1.Key{Data: pubPEM},
+				TrustedRoot: &v1beta1.StringOrExpression{Value: trJSON},
+				CTLog: &v1beta1.CTLog{
+					InsecureIgnoreTlog: false,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+		attestation := &v1beta1.Attestation{Name: "sbom", InToto: &v1beta1.InToto{Type: predicateType}}
+
+		err = v.VerifyAttestationSignature(context.Background(), img, attestation, attestor)
+		require.Error(t, err)
+		assert.Zero(t, tufCalls.Load())
+	})
+}
+
+func Test_ShouldIgnoreUnverifiedBundle(t *testing.T) {
+	assert.False(t, shouldIgnoreUnverifiedBundle(nil))
+	assert.False(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{}))
+	assert.False(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{
+		CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: false, InsecureIgnoreSCT: true},
+	}))
+	assert.True(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{
+		CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true},
+	}))
 }
