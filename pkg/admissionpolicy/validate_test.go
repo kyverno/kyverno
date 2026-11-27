@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
@@ -294,7 +295,7 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 		},
 	}
 
-	response, err := validateResource(policy, nil, *resource, nil, ns, a)
+	response, err := validateResource(policy, nil, *resource, nil, ns, a, false)
 	assert.NilError(t, err)
 	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
 }
@@ -336,4 +337,106 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 	wild := GetGVRs(rules("", "v1", "*"), nil)
 	assert.Equal(t, len(wild), 1)
 	assert.Equal(t, wild[0].Resource, "*")
+}
+
+// Test_Validate_BackgroundScanDoesNotTreatStoredObjectsAsCreate covers that a background scan has no real
+// admission request, so a stored object must not be judged as a brand-new CREATE.
+// A rule that only holds on CREATE (like "a pod may not name its own node") would
+// otherwise fail for every pod the scheduler has already bound to a node.
+func Test_Validate_BackgroundScanDoesNotTreatStoredObjectsAsCreate(t *testing.T) {
+	scheduledPod := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {"name": "ordinary-pod", "namespace": "default"},
+  "spec": {
+    "nodeName": "control-plane",
+    "containers": [{"name": "nginx", "image": "nginx:latest"}]
+  }
+}`)
+
+	tests := []struct {
+		name         string
+		expression   string
+		operations   []admissionregistrationv1.OperationType
+		storedObject bool
+		want         engineapi.RuleStatus
+	}{
+		{
+			name:         "scan: create-only rule passes for a stored pod that has a node",
+			expression:   "request.operation != 'CREATE' || !has(object.spec.nodeName)",
+			storedObject: true,
+			want:         engineapi.RuleStatusPass,
+		},
+		{
+			name:         "scan: operation is UPDATE and oldObject equals the stored object",
+			expression:   "request.operation == 'UPDATE' && object.spec.nodeName == oldObject.spec.nodeName",
+			storedObject: true,
+			want:         engineapi.RuleStatusPass,
+		},
+		{
+			name:         "scan: operation independent violation still fails",
+			expression:   "!has(object.spec.nodeName)",
+			storedObject: true,
+			want:         engineapi.RuleStatusFail,
+		},
+		{
+			name:         "scan: policy matching only CREATE still matches and is evaluated",
+			expression:   "true",
+			operations:   []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			storedObject: true,
+			want:         engineapi.RuleStatusPass,
+		},
+		{
+			// guard for the CLI path: it keeps CREATE semantics
+			name:         "default: create-only rule still fails outside scan mode",
+			expression:   "request.operation != 'CREATE' || !has(object.spec.nodeName)",
+			storedObject: false,
+			want:         engineapi.RuleStatusFail,
+		},
+	}
+
+	for _, tt := range tests {
+		ops := tt.operations
+		if ops == nil {
+			ops = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			resource, err := kubeutils.BytesToUnstructured(scheduledPod)
+			assert.NilError(t, err)
+
+			policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "egress-node"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: ops,
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						}},
+					},
+					Validations: []admissionregistrationv1.Validation{
+						{Expression: tt.expression, Message: "a pod may not name its node"},
+					},
+				},
+			}
+
+			gvk := resource.GroupVersionKind()
+			restMapper, err := utils.GetRESTMapper(nil)
+			assert.NilError(t, err)
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			assert.NilError(t, err)
+
+			// no bindings and no client: the same path the background scan takes for a
+			// policy without bindings
+			response, err := Validate(engineapi.NewValidatingAdmissionPolicyData(policy), *resource, gvk, mapping.Resource, nil, nil, nil, true, tt.storedObject)
+			assert.NilError(t, err)
+			assert.Equal(t, len(response.PolicyResponse.Rules), 1)
+			assert.Equal(t, response.PolicyResponse.Rules[0].Status(), tt.want)
+		})
+	}
 }
