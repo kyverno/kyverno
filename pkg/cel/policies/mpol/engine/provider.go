@@ -64,6 +64,12 @@ func NewKubeProvider(
 	// autogen.KindResolver) for irregular plurals like "jobsets" -> "JobSet".
 	celautogen.BareNameResolver = celautogen.RESTMapperBareNameResolver(mgr.GetRESTMapper())
 	celautogen.KindResolver = celautogen.RESTMapperKindResolver(mgr.GetRESTMapper())
+	if polexEnabled {
+		if err := engine.RegisterNamespacedPolicyNameIndex(ctx, mgr.GetFieldIndexer(), &policiesv1beta1.NamespacedMutatingPolicy{}); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	typeConverter := patch.NewTypeConverterManager(nil, c)
 	go typeConverter.Run(ctx)
 
@@ -74,7 +80,6 @@ func NewKubeProvider(
 	if polexEnabled {
 		polexHandler := newPolicyExceptionHandler(mgr.GetClient())
 		mpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
-		nmpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
 	}
 	if err := mpolBuilder.Complete(reconciler); err != nil {
 		return nil, typeConverter, fmt.Errorf("failed to construct mutatingpolicy manager: %w", err)
@@ -103,7 +108,7 @@ func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
 				q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Name: ref.Name}})
 			case "NamespacedMutatingPolicy":
 				var policies policiesv1beta1.NamespacedMutatingPolicyList
-				if err := c.List(ctx, &policies); err != nil {
+				if err := c.List(ctx, &policies, client.MatchingFields{engine.NamespacedPolicyNameIndex: ref.Name}); err != nil {
 					logging.Error(err, "failed to list namespaced mutating policies", "policy", ref.Name)
 					continue
 				}

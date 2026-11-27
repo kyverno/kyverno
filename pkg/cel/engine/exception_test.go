@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -248,4 +250,46 @@ func TestPolicyExceptionLister_ReadsThroughClientGoLister(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, got)
 	})
+}
+
+func TestIndexPolicyName(t *testing.T) {
+	// A PolicyRef has no namespace: all same-named namespaced policies
+	// must share the same cache-index value, regardless of policy kind.
+	objects := []client.Object{
+		&policiesv1beta1.NamespacedValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "team-a"}},
+		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "team-b"}},
+		&policiesv1beta1.NamespacedImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "team-c"}},
+	}
+	for _, obj := range objects {
+		require.Equal(t, []string{"shared"}, IndexPolicyName(obj))
+	}
+}
+
+type recordingPolicyNameIndexer struct {
+	policy    client.Object
+	field     string
+	extractor client.IndexerFunc
+	err       error
+}
+
+func (i *recordingPolicyNameIndexer) IndexField(_ context.Context, policy client.Object, field string, extractor client.IndexerFunc) error {
+	i.policy = policy
+	i.field = field
+	i.extractor = extractor
+	return i.err
+}
+
+func TestRegisterNamespacedPolicyNameIndex(t *testing.T) {
+	indexer := &recordingPolicyNameIndexer{}
+	policy := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "team-a"},
+	}
+	require.NoError(t, RegisterNamespacedPolicyNameIndex(context.Background(), indexer, policy))
+	require.Same(t, policy, indexer.policy)
+	require.Equal(t, NamespacedPolicyNameIndex, indexer.field)
+	require.Equal(t, []string{"shared"}, indexer.extractor(policy))
+
+	lookupErr := errors.New("injected index registration error")
+	indexer.err = lookupErr
+	require.ErrorIs(t, RegisterNamespacedPolicyNameIndex(context.Background(), indexer, policy), lookupErr)
 }

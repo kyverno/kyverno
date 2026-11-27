@@ -328,18 +328,6 @@ func main() {
 				mgrCtx, mgrCancel := context.WithCancel(signalCtx)
 				defer mgrCancel()
 
-				wg.StartWithContext(mgrCtx, func(ctx context.Context) {
-					if err := mgr.Start(ctx); err != nil {
-						setup.Logger.Error(err, "failed to start manager")
-						os.Exit(1)
-					}
-				})
-
-				if !mgr.GetCache().WaitForCacheSync(mgrCtx) {
-					setup.Logger.Error(nil, "failed to sync cache for manager")
-					os.Exit(1)
-				}
-
 				c := mpolcompiler.NewCompiler()
 				// The mpol reconciler registers its PolicyException watch on this manager's
 				// cache and caches compiled results between triggering events. Reading
@@ -350,6 +338,20 @@ func main() {
 				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace()), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
+					os.Exit(1)
+				}
+
+				// Register all policy watches and cache indexes before starting the manager.
+				// Registering an index after its informer has started fails in client-go.
+				wg.StartWithContext(mgrCtx, func(ctx context.Context) {
+					if err := mgr.Start(ctx); err != nil {
+						setup.Logger.Error(err, "failed to start manager")
+						os.Exit(1)
+					}
+				})
+
+				if !mgr.GetCache().WaitForCacheSync(mgrCtx) {
+					setup.Logger.Error(nil, "failed to sync cache for manager")
 					os.Exit(1)
 				}
 

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -56,6 +57,27 @@ func (s ExceptionScope) Select(exceptions []*policiesv1beta1.PolicyException, ki
 		}
 	}
 	return out
+}
+
+// NamespacedPolicyNameIndex is a cache-only field index used by PolicyException
+// handlers to find same-named namespaced policies without listing all policies.
+// A PolicyRef contains no namespace, so candidate lookups span namespaces;
+// ExceptionScope still controls which exceptions apply when each policy compiles.
+const NamespacedPolicyNameIndex = "policyException.policyName"
+
+// IndexPolicyName extracts the name for the namespaced policy cache index.
+func IndexPolicyName(obj client.Object) []string {
+	return []string{obj.GetName()}
+}
+
+// RegisterNamespacedPolicyNameIndex installs the cache-only name index that
+// PolicyException handlers use across all three CEL policy engines.
+// It must be called before the controller-runtime manager starts.
+func RegisterNamespacedPolicyNameIndex(ctx context.Context, indexer client.FieldIndexer, policy client.Object) error {
+	if err := indexer.IndexField(ctx, policy, NamespacedPolicyNameIndex, IndexPolicyName); err != nil {
+		return fmt.Errorf("failed to index namespaced policy %T by name: %w", policy, err)
+	}
+	return nil
 }
 
 type PolicyExceptionLister interface {
