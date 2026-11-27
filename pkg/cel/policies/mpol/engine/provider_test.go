@@ -81,7 +81,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions, libs.NewFakeContextProvider())
+			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions, libs.NewFakeContextProvider(), celengine.ExceptionScopeAll)
 			if tt.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, prov)
@@ -91,6 +91,169 @@ func TestNewProvider(t *testing.T) {
 
 				pols := prov.Fetch(context.Background(), false)
 				assert.GreaterOrEqual(t, len(pols), tt.expectedCount)
+			}
+		})
+	}
+}
+
+// TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace argument
+// NewProvider passes to scope.Select: under scope "*" a namespaced policy must only accept
+// exceptions filed in its own namespace, never a foreign one. It fails if NewProvider ever stops
+// passing policy.GetNamespace() through to the exception match.
+func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
+	policy := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+				},
+			}},
+		},
+	}
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+	foreignException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+
+	prov, err := NewProvider(
+		compiler.NewCompiler(),
+		[]policiesv1beta1.MutatingPolicyLike{policy},
+		[]*policiesv1beta1.PolicyException{ownException, foreignException},
+		libs.NewFakeContextProvider(),
+		celengine.ExceptionScopeAll,
+	)
+	require.NoError(t, err)
+
+	eng := NewEngine(
+		prov,
+		func(ns string) *corev1.Namespace { return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}} },
+		matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{},
+	)
+	requestObject := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"tenant-a"}}`
+	req := celengine.EngineRequest{
+		Request: admissionv1.AdmissionRequest{
+			Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			Namespace: "tenant-a",
+			Name:      "nginx",
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: []byte(requestObject)},
+		},
+	}
+	resp, err := eng.Handle(context.Background(), req, predicate)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+	rule := resp.Policies[0].Rules[0]
+	require.Len(t, rule.Exceptions(), 1, "tenant-a's policy must only see its own namespace's exception")
+	assert.Equal(t, "tenant-a", rule.Exceptions()[0].GetNamespace())
+	assert.Equal(t, "own", rule.Exceptions()[0].GetName())
+}
+
+// TestNewProvider_ScopeGatesExceptionSelection pins the scope argument NewProvider passes to
+// scope.Select: it must not be ignored or hardcoded to ExceptionScopeAll. ExceptionScopeNone must
+// select nothing, and a concrete scope must select only the exception filed in that (central)
+// namespace, even though the policy's own namespace would otherwise qualify.
+func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
+	policy := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+				},
+			}},
+		},
+	}
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		scope         celengine.ExceptionScope
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: celengine.ExceptionScopeNone},
+		{name: "concrete scope selects only the central namespace's exception", scope: celengine.ExceptionScope("central-ns"), expectedNames: []string{"central"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prov, err := NewProvider(
+				compiler.NewCompiler(),
+				[]policiesv1beta1.MutatingPolicyLike{policy},
+				[]*policiesv1beta1.PolicyException{ownException, centralException},
+				libs.NewFakeContextProvider(),
+				tt.scope,
+			)
+			require.NoError(t, err)
+
+			eng := NewEngine(
+				prov,
+				func(ns string) *corev1.Namespace { return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}} },
+				matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{},
+			)
+			requestObject := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"tenant-a"}}`
+			req := celengine.EngineRequest{
+				Request: admissionv1.AdmissionRequest{
+					Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+					Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					Namespace: "tenant-a",
+					Name:      "nginx",
+					Operation: admissionv1.Create,
+					Object:    runtime.RawExtension{Raw: []byte(requestObject)},
+				},
+			}
+			resp, err := eng.Handle(context.Background(), req, predicate)
+			require.NoError(t, err)
+			require.Len(t, resp.Policies, 1)
+			require.Len(t, resp.Policies[0].Rules, 1)
+			rule := resp.Policies[0].Rules[0]
+
+			if len(tt.expectedNames) == 0 {
+				assert.Empty(t, rule.Exceptions())
+				return
+			}
+			require.Len(t, rule.Exceptions(), len(tt.expectedNames))
+			for i, name := range tt.expectedNames {
+				assert.Equal(t, name, rule.Exceptions()[i].GetName())
 			}
 		})
 	}
@@ -345,7 +508,7 @@ func TestNewProvider_AutogeneratedExceptionRewriting(t *testing.T) {
 	}
 
 	capComp := &captureCompiler{Compiler: compiler.NewCompiler()}
-	prov, err := NewProvider(capComp, []policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception}, libs.NewFakeContextProvider())
+	prov, err := NewProvider(capComp, []policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception}, libs.NewFakeContextProvider(), celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	fetched := prov.Fetch(context.Background(), false)
@@ -438,7 +601,7 @@ func TestNewProvider_AutogeneratedExceptionRuntimeEvaluation(t *testing.T) {
 		},
 	}
 
-	prov, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception}, libs.NewFakeContextProvider())
+	prov, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception}, libs.NewFakeContextProvider(), celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(

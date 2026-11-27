@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generatename-exclusion
+spec:
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-mpol-generatename-exclusion
+  - name: create generated deployment
+    try:
+    - script:
+        content: kubectl create -n "$NAMESPACE" -f deployment-generated.yaml
+    - assert:
+        file: assert-generated-mutated.yaml
+  - name: create legitimate excluded deployment
+    try:
+    - create:
+        file: deployment-legitimate.yaml
+    - assert:
+        file: assert-legitimate-unmutated.yaml
+    - script:
+        content: |
+          if ! MUTATED_LABEL=$(kubectl get deployment trusted-deployment -n "$NAMESPACE" -o jsonpath='{.metadata.labels.mutated}'); then
+            echo "ERROR: failed to inspect deployment trusted-deployment"
+            exit 1
+          fi
+          if [ -n "$MUTATED_LABEL" ]; then
+            echo "ERROR: mutated label found on excluded deployment: $MUTATED_LABEL"
+            exit 1
+          fi
+          echo "SUCCESS: mutated label not present on excluded deployment"

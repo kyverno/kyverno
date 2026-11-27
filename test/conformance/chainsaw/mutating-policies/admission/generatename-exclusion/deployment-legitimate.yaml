@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trusted-deployment
+  labels:
+    app: trusted
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trusted
+  template:
+    metadata:
+      labels:
+        app: trusted
+    spec:
+      containers:
+      - name: trusted
+        image: public.ecr.aws/docker/library/nginx:latest

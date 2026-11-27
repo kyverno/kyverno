@@ -643,7 +643,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 					}
 					if len(k8sPolicies) > 0 && len(resources) > 0 {
-						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions, celengine.ExceptionScopeAll)
 						if err != nil {
 							if !c.ContinueOnFail {
 								return &rc, resources, responses, err
@@ -653,7 +653,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 					}
 					if len(jsonPolicies) > 0 {
-						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions, celengine.ExceptionScopeAll)
 						if err != nil {
 							if !c.ContinueOnFail {
 								return &rc, resources, responses, err
@@ -672,7 +672,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 						return len(resources) == 0
 					})
-					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
+					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider, celengine.ExceptionScopeAll)
 					if err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
@@ -846,7 +846,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -1065,7 +1065,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
