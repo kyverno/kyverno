@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-null-data
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [example.com]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [documents]
+  validations:
+  - expression: object.spec.data == null
+    message: spec.data must be null

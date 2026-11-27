@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: preserve-custom-null-fields
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Document
+  policy: require-null-data
+  resources:
+  - empty-data
+  result: fail
+- isValidatingPolicy: true
+  kind: Document
+  policy: require-null-data
+  resources:
+  - null-data
+  result: pass
