@@ -6,7 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
-	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -201,7 +201,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	return &compiledPolicy{
 		namespace:             ivpolicy.GetNamespace(),
 		failurePolicy:         ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		verifyDigest:          spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
+		verifyDigest:          resolveVerifyDigest(spec.ValidationConfigurations),
 		matchConditions:       matchConditions,
 		matchImageReferences:  matchImageReferences,
 		validations:           validations,
@@ -219,6 +219,22 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		tracedVariables:       tracedVariables,
 		ivFuncs:               ivFuncs,
 	}, nil
+}
+
+// resolveVerifyDigest determines whether image digest verification should be enforced.
+// If verifyDigest is explicitly configured, that value is used.
+// When verifyDigest is omitted:
+//   - If mutateDigest is explicitly disabled (false), verifyDigest defaults to false
+//     to avoid denying tag-referenced images before validations and signature checks run.
+//   - Otherwise, verifyDigest defaults to true.
+func resolveVerifyDigest(cfg policiesv1alpha1.ValidationConfiguration) bool {
+	if cfg.VerifyDigest != nil {
+		return *cfg.VerifyDigest
+	}
+	if cfg.MutateDigest != nil && !*cfg.MutateDigest {
+		return false
+	}
+	return true
 }
 
 func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option) (*environment.EnvSet, *engine.VariablesProvider, error) {
@@ -329,7 +345,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	return extendedBase, variablesProvider, nil
 }
 
-func getAttestations(att []v1beta1.Attestation) map[string]string {
+func getAttestations(att []policiesv1beta1.Attestation) map[string]string {
 	m := make(map[string]string)
 	for _, v := range att {
 		m[v.Name] = v.Name

@@ -381,6 +381,160 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 	}
 }
 
+func TestHandleValidating_MutateDigestFalse_AllowsTagImage(t *testing.T) {
+	falseVal := false
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-mutate-digest-false"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: &falseVal,
+				Required:     &falseVal,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	provider := singlePolicyProvider(policy)
+	podWithTag := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"ghcr.io/kyverno/test:latest"}]}}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Create,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podWithTag)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+	}
+}
+
+func TestHandleValidating_MutateDigestFalse_ExplicitVerifyDigestTrue_RejectsTagImage(t *testing.T) {
+	falseVal := false
+	trueVal := true
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-mutate-false-verify-true"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: &falseVal,
+				VerifyDigest: &trueVal,
+				Required:     &falseVal,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	provider := singlePolicyProvider(policy)
+	podWithTag := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"ghcr.io/kyverno/test:latest"}]}}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Create,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podWithTag)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+		assert.Contains(t, resp.Policies[0].Result.Message(), "does not have a digest")
+	}
+}
+
+func TestHandleValidating_MutateDigestFalse_CELValidationRejection(t *testing.T) {
+	falseVal := false
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-mutate-digest-false-cel-reject"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: &falseVal,
+				Required:     &falseVal,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "CEL validation failed for tag image"}},
+		},
+	}
+	provider := singlePolicyProvider(policy)
+	podWithTag := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"ghcr.io/kyverno/test:latest"}]}}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Create,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podWithTag)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+		assert.Contains(t, resp.Policies[0].Result.Message(), "CEL validation failed for tag image")
+	}
+}
+
 func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-ephemeral"},
