@@ -27,14 +27,63 @@ on:
       - scripts/release/**
       - config/releases.yaml
       - charts/kyverno/Chart.lock
+  # The release rehearsal costs about 1,000 runner-minutes, so pull requests
+  # run it only when they change release files (see the changes job). The
+  # nightly run covers the other paths above, such as Makefile and the
+  # conformance workflows, after they merge.
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  rehearsal:
+  # Decides whether a pull request runs the release rehearsal. Pull requests
+  # that change only shared files, such as Makefile or the conformance
+  # workflows, run the offline tests here and the rehearsal nightly.
+  changes:
     if: github.event_name == 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      rehearsal: ${{ steps.files.outputs.rehearsal }}
+    steps:
+      - name: Find release files
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          rehearsal=false
+          while IFS= read -r file; do
+            case "$file" in
+              .github/workflows/*release*.yaml|.github/actions/release/*|.github/actions/tools/helm/*|\
+              scripts/release/*|config/releases.yaml|charts/kyverno/Chart.lock|\
+              .goreleaser.yml|.ko.yaml|.krew.yaml)
+                echo "Release file changed: $file"
+                rehearsal=true
+                ;;
+            esac
+          done < <(gh api --paginate "repos/$GH_REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')
+          echo "rehearsal=$rehearsal" >> "$GITHUB_OUTPUT"
+          if [ "$rehearsal" = false ]; then
+            echo "No release files changed, so the release rehearsal runs nightly on the default branch instead." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # On pull requests the rehearsal runs unless the changes job found no
+  # release files, so a failed changes job still runs it.
+  rehearsal:
+    needs: changes
+    if: >-
+      !cancelled() &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && needs.changes.outputs.rehearsal != 'false'))
     permissions:
       contents: read
       actions: read
@@ -88,3 +137,23 @@ jobs:
           python3 scripts/release/release.py seal
           python3 scripts/release/release.py verify-packages
           helm lint --strict .release/packages/*.tgz
+
+  # A failed nightly or manual rehearsal opens or updates a tracking issue,
+  # because nobody watches scheduled runs.
+  sync-issue:
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    needs:
+      - rehearsal
+      - offline-tests
+      - prepare-charts
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}
