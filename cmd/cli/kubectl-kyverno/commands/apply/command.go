@@ -379,8 +379,18 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	c.recordGlobalContextEntryDeprecationWarnings(out, gctxEntries)
 
-	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
-		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
+	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)+len(gctxEntries)) > 0 {
+		var gceGVRs []schema.GroupVersionResource
+		for _, gce := range gctxEntries {
+			if kr := gce.Spec.KubernetesResource; kr != nil {
+				gceGVRs = append(gceGVRs, schema.GroupVersionResource{
+					Group:    kr.Group,
+					Version:  kr.Version,
+					Resource: kr.Resource,
+				})
+			}
+		}
+		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources, gceGVRs...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
 		}
@@ -495,17 +505,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation(), store.GetGlobalContextStore())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, nsResolver, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, nsResolver, rc, dClient, "resource", store.GetGlobalContextStore())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, nsResolver, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, nsResolver, rc, dClient, "json", store.GetGlobalContextStore())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -630,6 +640,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 				rc.IncrementError(1)
 				contextProvider = nil
 			} else {
+				processor.AttachGlobalContextStore(contextProvider, store.GetGlobalContextStore())
 				if len(vpols) != 0 {
 					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
 					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
@@ -808,6 +819,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	operation string,
+	gctxStore store.GCtxStore,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -844,6 +856,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 		return nil, nil
 	}
+	processor.AttachGlobalContextStore(contextProvider, gctxStore)
 
 	// Compilation captures the CLI library defaults, so initialize them first.
 	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions, celengine.ExceptionScopeAll)
@@ -1042,6 +1055,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	payloadType string,
+	gctxStore store.GCtxStore,
 ) ([]engineapi.EngineResponse, error) {
 	if len(dps) == 0 || len(resources) == 0 {
 		return nil, nil
@@ -1063,6 +1077,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		}
 		return nil, nil
 	}
+	processor.AttachGlobalContextStore(contextProvider, gctxStore)
 
 	// Compilation captures the CLI library defaults, so initialize them first.
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions, celengine.ExceptionScopeAll)
@@ -1461,7 +1476,7 @@ func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.U
 	return resource.FlattenResources(resources)
 }
 
-func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
+func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured, extraGVRs ...schema.GroupVersionResource) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
@@ -1493,6 +1508,13 @@ func createFakeClientFromResources(resources, targetResources, parameterResource
 			seen[gvr] = true
 			gvrToListKind[gvr] = gvk.Kind + "List"
 			gvrToGVK[gvr] = gvk
+			discoveryGVRs = append(discoveryGVRs, gvr)
+		}
+	}
+	for _, gvr := range extraGVRs {
+		if !seen[gvr] {
+			seen[gvr] = true
+			gvrToListKind[gvr] = gvr.Resource + "List"
 			discoveryGVRs = append(discoveryGVRs, gvr)
 		}
 	}

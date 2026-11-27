@@ -127,6 +127,28 @@ type PolicyProcessor struct {
 	TraceSink func(*trace.Decision)
 }
 
+func (p *PolicyProcessor) resolveContextProvider(restMapper meta.RESTMapper) (libs.Context, error) {
+	if p.ContextProvider != nil {
+		libs.LibraryContext = p.ContextProvider
+		return p.ContextProvider, nil
+	}
+	if HookFallbackContextCreated != nil {
+		HookFallbackContextCreated()
+	}
+	var httpMocks map[string]interface{}
+	var gctxStore store.GCtxStore
+	if p.Store != nil {
+		httpMocks = p.Store.GetHTTPMockIndex()
+		gctxStore = p.Store.GetGlobalContextStore()
+	}
+	cp, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, httpMocks)
+	if err != nil {
+		return nil, err
+	}
+	AttachGlobalContextStore(cp, gctxStore)
+	return cp, nil
+}
+
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	resource := p.Resource
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
@@ -218,18 +240,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	if len(mutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
-		contextProvider := p.ContextProvider
-		if contextProvider == nil {
-			if HookFallbackContextCreated != nil {
-				HookFallbackContextCreated()
-			}
-			var err error
-			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			libs.LibraryContext = contextProvider
+		contextProvider, err := p.resolveContextProvider(restMapper)
+		if err != nil {
+			return nil, err
 		}
 
 		if p.MpolProviderErr != nil {
@@ -496,18 +509,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				k8sPolicies = append(k8sPolicies, pol)
 			}
 		}
-		contextProvider := p.ContextProvider
-		if contextProvider == nil {
-			if HookFallbackContextCreated != nil {
-				HookFallbackContextCreated()
-			}
-			var err error
-			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			libs.LibraryContext = contextProvider
+		contextProvider, err := p.resolveContextProvider(restMapper)
+		if err != nil {
+			return nil, err
 		}
 		if resource.Object != nil {
 			// Evaluate Kubernetes-mode policies via the admission path
@@ -672,18 +676,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
 		// initialize the context provider before compiling to make it globally available
-		contextProvider := p.ContextProvider
-		if contextProvider == nil {
-			if HookFallbackContextCreated != nil {
-				HookFallbackContextCreated()
-			}
-			var err error
-			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			libs.LibraryContext = contextProvider
+		contextProvider, err := p.resolveContextProvider(restMapper)
+		if err != nil {
+			return nil, err
 		}
 
 		var compiledPolicies []gpolengine.Policy

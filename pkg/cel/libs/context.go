@@ -125,6 +125,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	if err != nil {
 		return nil, err
 	}
+	return unwrapGlobalReference(data)
+}
+
+func unwrapGlobalReference(data any) (any, error) {
 	if isLikelyKubernetesObject(data) {
 		out, err := kubeutils.ObjToUnstructured(data)
 		if err != nil {
@@ -134,12 +138,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			// Return the map form: since cel-go v0.31 (#17067) NativeToValue only converts
 			// registered native types, and unstructured.Unstructured is not one.
 			return out.UnstructuredContent(), nil
-		} else {
-			return nil, errors.New("failed to convert to Unstructured")
 		}
-	} else {
-		return data, nil
+		return nil, errors.New("failed to convert to Unstructured")
 	}
+	return data, nil
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {

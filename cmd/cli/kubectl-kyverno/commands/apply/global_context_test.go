@@ -3,6 +3,9 @@ package apply
 import (
 	"bytes"
 	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -314,4 +317,172 @@ func TestRecordGlobalContextEntryDeprecationWarnings(t *testing.T) {
 		c.recordGlobalContextEntryDeprecationWarnings(&out, []*kyvernov2.GlobalContextEntry{jmesPathGCE})
 		assert.NoError(t, c.failOnDeprecationWarnings())
 	})
+}
+
+func TestApplyOffline_GlobalContextEntry_CELEvaluation(t *testing.T) {
+	dir := t.TempDir()
+
+	gcePath := filepath.Join(dir, "gce.yaml")
+	require.NoError(t, os.WriteFile(gcePath, []byte(`
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: config-cache
+spec:
+  kubernetesResource:
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+  - name: cmCount
+    expression: "object.size()"
+  - name: firstTier
+    expression: "object[0].data.tier"
+`), 0o600))
+
+	cmPath := filepath.Join(dir, "configmap.yaml")
+	require.NoError(t, os.WriteFile(cmPath, []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-settings
+  namespace: default
+data:
+  tier: prod
+`), 0o600))
+
+	podPath := filepath.Join(dir, "pod.yaml")
+	require.NoError(t, os.WriteFile(podPath, []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  namespace: default
+  labels:
+    tier: prod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+`), 0o600))
+
+	vpolPath := filepath.Join(dir, "vpol.yaml")
+	require.NoError(t, os.WriteFile(vpolPath, []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-global-context
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: [CREATE, UPDATE]
+      resources: ["pods"]
+  validations:
+  - expression: "globalContext.get('config-cache', '').exists(cm, cm.metadata.name == 'env-settings' && cm.data.tier == 'prod')"
+    message: "direct globalContext.get entry lookup must match backing ConfigMap"
+  - expression: "globalContext.get('config-cache', 'cmCount') == 1 && globalContext.get('config-cache', 'firstTier') == object.metadata.labels.tier"
+    message: "globalContext.get projections must match resolved GlobalContextEntry values"
+`), 0o600))
+
+	dpolPath := filepath.Join(dir, "dpol.yaml")
+	require.NoError(t, os.WriteFile(dpolPath, []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: match-global-context
+spec:
+  schedule: "*/5 * * * *"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["*"]
+      resources: ["pods"]
+  conditions:
+  - name: matchesProjection
+    expression: "globalContext.get('config-cache', 'firstTier') == object.metadata.labels.tier"
+`), 0o600))
+
+	badPodPath := filepath.Join(dir, "bad-pod.yaml")
+	require.NoError(t, os.WriteFile(badPodPath, []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: default
+  labels:
+    tier: staging
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+`), 0o600))
+
+	emptyCountGCEPath := filepath.Join(dir, "empty-count-gce.yaml")
+	require.NoError(t, os.WriteFile(emptyCountGCEPath, []byte(`
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: config-cache
+spec:
+  kubernetesResource:
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+  - name: cmCount
+    expression: "object.size()"
+`), 0o600))
+
+	tests := []struct {
+		name          string
+		policyPaths   []string
+		resourcePaths []string
+		wantPass      int
+		wantFail      int
+	}{
+		{
+			name:          "ValidatingPolicy resolves direct entry and projections offline",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{gcePath, cmPath, podPath},
+			wantPass:      1,
+		},
+		{
+			name:          "ValidatingPolicy fails when resource mismatches GlobalContextEntry projection",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{gcePath, cmPath, badPodPath},
+			wantFail:      1,
+		},
+		{
+			name:          "DeletingPolicy resolves GlobalContextEntry projection offline",
+			policyPaths:   []string{dpolPath},
+			resourcePaths: []string{gcePath, cmPath, podPath},
+			wantPass:      1,
+		},
+		{
+			name:          "GlobalContextEntry-only input resolves empty backing collection without error",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{emptyCountGCEPath},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ApplyCommandConfig{
+				PolicyPaths:   tt.policyPaths,
+				ResourcePaths: tt.resourcePaths,
+			}
+			rc, _, _, responses, err := cfg.applyCommandHelper(context.Background(), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+			assert.Zero(t, rc.Error)
+			if tt.wantPass == 0 && tt.wantFail == 0 {
+				assert.Empty(t, responses)
+			}
+		})
+	}
 }
