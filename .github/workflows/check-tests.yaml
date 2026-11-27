@@ -13,7 +13,9 @@ permissions: {}
 # workflow_dispatch on main and the supported release branches, so each run
 # tests a batch of commits. You can also start it by hand, for example after a
 # fix landed in kyverno/policies or kyverno/sdk. On main and release branches a
-# dispatched run updates the tracking issue, which clears the E2E gate.
+# dispatched run updates the tracking issue, which clears the E2E gate. An
+# issue with the full-matrix label is cleared by a full run only: see the
+# sync-issue job.
 on:
   workflow_dispatch:
     inputs:
@@ -347,8 +349,192 @@ jobs:
         run: |
           echo "deferred=true" >> "$GITHUB_OUTPUT"
           echo "::notice::This first attempt failed. The Tests re-run workflow re-runs the failed jobs once, and the second attempt updates the tracking issue."
-      - name: Sync issue
+      # Decides what the Sync issue step does. A full run tests every supported
+      # Kubernetes version, a reduced run only the oldest and the latest one.
+      # A failure that only a full run finds gets the full-matrix label, and a
+      # passing reduced run then leaves the issue open: it didn't run the jobs
+      # that failed. Only a passing full run closes such an issue.
+      #
+      # - A full run fails, and every failed job is on a version in between:
+      #   the issue gets full-matrix.
+      # - A full run fails there and also in a job that reduced runs have: no
+      #   label. A later passing reduced run closes the issue, and the next
+      #   full run opens a new one with the label if the failure in between
+      #   remains.
+      # - A full run fails and its jobs can't be read: the issue gets full-matrix
+      #   too. Not knowing which jobs failed must not let a passing reduced run
+      #   close the issue.
+      # - A run fails, every test job passed, and the jobs that failed only
+      #   describe the run (the batch job, for example): the issue is left as
+      #   it is, in both matrices. It isn't a test failure, and it isn't a
+      #   passing run either.
+      # - A reduced run fails while the issue has full-matrix: the issue is
+      #   updated as usual. The action only adds labels, so the label stays
+      #   and the issue still needs a passing full run.
+      # - A reduced run passes: the issue is closed unless it has full-matrix.
+      # - A full run passes: the issue is closed.
+      # - The first attempt of a failing run: this step doesn't run, see the
+      #   step above. The second attempt is judged by the jobs that still fail
+      #   after the re-run.
+      # - Release branches: the scheduler starts their runs without the matrix
+      #   input, so every run there is a full run and closes the issue.
+      - name: Plan the issue update
+        id: plan
         if: steps.defer.outputs.deferred != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MATRIX: ${{ inputs.matrix || 'full' }}
+          # A run cancelled without a failure doesn't reach this job.
+          FAILED: ${{ contains(needs.*.result, 'failure') }}
+        with:
+          # The job list of a full run is long, and reading it has failed with
+          # a 502 before.
+          retries: 3
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = context.ref.replace(/^refs\/heads\//, '');
+            const matrix = process.env.MATRIX;
+            const FULL_MATRIX = 'full-matrix';
+            // The job of this workflow that passes the matrix input on, by
+            // its name: a reduced run skips versions in its jobs only. The
+            // other jobs run the same way in both matrices.
+            const MATRIX_JOB = 'Conformance tests';
+            // Jobs that describe the run. They aren't tests.
+            const NOT_TESTS = ['Batch summary', 'Summarize E2E failures'];
+
+            const versionOf = name => (/\bv\d+\.\d+\.\d+\b/.exec(name) || [])[0];
+            const byVersion = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+            const labelNames = issue => issue.labels.map(l => (typeof l === 'string' ? l : l.name));
+
+            /**
+             * The versions that reduced runs skip, when every failed job of
+             * this run is on one of them. Otherwise null.
+             *
+             * kubernetes-matrix.yaml lists the versions oldest first, and a
+             * reduced run keeps the first and the last one of that list. That
+             * holds for each list a job may read: versions, beta-versions,
+             * stable-versions, and smoke-versions, which is the last version
+             * in both matrices. So a reduced run has a job of this run exactly
+             * when the job's version is the oldest or the latest one here.
+             * The versions come from the job names, so they aren't listed a
+             * second time. A job without a version runs in both matrices.
+             */
+            function failedOnlyOutsideReduced(jobs) {
+              const inMatrix = job => job.name.startsWith(`${MATRIX_JOB} / `);
+              const versions = [...new Set(jobs.filter(inMatrix).map(job => versionOf(job.name)).filter(Boolean))]
+                .sort(byVersion);
+              const reduced = new Set([versions[0], versions[versions.length - 1]]);
+              const outside = new Set();
+              for (const job of jobs.filter(j => j.conclusion === 'failure' && !NOT_TESTS.includes(j.name))) {
+                const version = inMatrix(job) && versionOf(job.name);
+                if (!version || reduced.has(version)) {
+                  return null;
+                }
+                outside.add(version);
+              }
+              return outside.size > 0 ? [...outside].sort(byVersion) : null;
+            }
+
+            /**
+             * The open tracking issues of this branch, found the way the
+             * failure-issue action finds them: by label and by the marker in
+             * the body. The second label finds an issue whose
+             * workflow-failure label was removed by hand.
+             */
+            async function trackingIssues() {
+              const marker = `<!-- workflow-failure:${context.workflow}:${context.ref} -->`;
+              const found = new Map();
+              for (const label of ['workflow-failure', FULL_MATRIX]) {
+                const issues = await github.paginate(github.rest.issues.listForRepo, {
+                  owner, repo, state: 'open', labels: label, per_page: 100
+                });
+                for (const issue of issues) {
+                  if (!issue.pull_request && issue.body && issue.body.includes(marker)) {
+                    found.set(issue.number, issue);
+                  }
+                }
+              }
+              return [...found.values()];
+            }
+
+            let sync = true;
+            let fullMatrix = false;
+            let note = '';
+
+            // The jobs of a failing run, or null when they can't be read.
+            let jobs = null;
+            if (process.env.FAILED === 'true') {
+              try {
+                // Small pages: a page of 100 jobs has timed out at GitHub's
+                // gateway on runs with hundreds of jobs.
+                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner, repo, run_id: context.runId, filter: 'latest', per_page: 30
+                });
+              } catch (err) {
+                core.warning(matrix === 'full'
+                  ? `Could not list the jobs of this run (${err.message || String(err)}), so it is unknown whether reduced runs have the jobs that failed. The tracking issue gets the ${FULL_MATRIX} label to be safe.`
+                  : `Could not list the jobs of this run (${err.message || String(err)}), so the failure is recorded in the tracking issue.`);
+              }
+            }
+            const failedJobs = (jobs || []).filter(j => j.conclusion === 'failure');
+            const onlyNotTests = failedJobs.length > 0 && failedJobs.every(j => NOT_TESTS.includes(j.name));
+
+            if (process.env.FAILED === 'true' && onlyNotTests) {
+              // Every test job passed, but the run failed, for example when
+              // the batch job failed to start. That is no test failure to
+              // record, and no passing run that may close the issue either.
+              sync = false;
+              core.notice(
+                `Only ${failedJobs.map(j => j.name).join(', ')} failed, which ${failedJobs.length > 1 ? 'describe the run and are not tests' : 'describes the run and is not a test'}, so this run leaves the tracking issue of ${branch} as it is.`,
+                { title: 'Tracking issue left as it is' });
+            } else if (process.env.FAILED === 'true') {
+              // Not knowing which jobs failed counts as a failure that
+              // reduced runs may skip: without the label, the next passing
+              // reduced run would close the issue.
+              const unread = matrix === 'full' && jobs === null;
+              const outside = matrix === 'full' && jobs !== null ? failedOnlyOutsideReduced(jobs) : null;
+              fullMatrix = unread || outside !== null;
+              if (outside !== null) {
+                core.notice(`Every failed job is on ${outside.join(', ')}, which reduced runs skip, so the tracking issue gets the ${FULL_MATRIX} label.`);
+              }
+              // Always in the note, also when another run added the label:
+              // the label outlives the run that set it.
+              note = [
+                `### The \`${FULL_MATRIX}\` label`,
+                '',
+                (outside !== null ? `This run failed only on ${outside.join(', ')}, which reduced runs skip, so this issue has the label. ` : '') +
+                (unread ? 'The jobs of this run could not be read, so it is unknown whether reduced runs have the jobs that failed. This issue has the label to be safe. ' : '') +
+                `When this issue has the \`${FULL_MATRIX}\` label, a full run failed on Kubernetes versions that reduced runs skip, or its jobs could not be read, so a passing reduced run leaves the issue open. To clear it, start a full run: [Run workflow](${context.serverUrl}/${owner}/${repo}/actions/workflows/check-tests.yaml) on \`${branch}\` with matrix \`full\`. The nightly run does the same.`,
+              ].join('\n');
+            } else if (matrix === 'reduced') {
+              // The list of labelled issues has come back empty while an
+              // issue was open. So the action closes the issue only when this
+              // step has seen it, and seen that it has no full-matrix label:
+              // an empty or failed read leaves the issue as it is, and the
+              // next passing run closes it.
+              sync = false;
+              try {
+                const issues = await trackingIssues();
+                const held = issues.filter(issue => labelNames(issue).includes(FULL_MATRIX));
+                if (held.length > 0) {
+                  core.notice(
+                    `This reduced run passed, but ${held.map(issue => `#${issue.number}`).join(', ')} has the ${FULL_MATRIX} label: a full run failed on Kubernetes versions that reduced runs skip. The issue stays open until a full run passes. To start one, use Run workflow on ${branch} with matrix full.`,
+                    { title: 'Tracking issue left open' });
+                } else if (issues.length === 0) {
+                  core.info(`No open tracking issue found for ${branch}, so there is nothing to close.`);
+                } else {
+                  sync = true;
+                }
+              } catch (err) {
+                core.warning(`Could not read the tracking issue of ${branch} (${err.message || String(err)}), so this run leaves it as it is.`);
+              }
+            }
+
+            core.setOutput('sync', sync);
+            core.setOutput('full-matrix', fullMatrix);
+            core.setOutput('note', note);
+      - name: Sync issue
+        if: steps.defer.outputs.deferred != 'true' && steps.plan.outputs.sync == 'true'
         uses: ./.github/actions/workflow/failure-issue
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
@@ -356,8 +542,10 @@ jobs:
           commits: ${{ needs.batch.outputs.markdown }}
           commits-url: ${{ needs.batch.outputs.compare-url }}
           # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
-          labels: e2e-failure
+          labels: e2e-failure${{ steps.plan.outputs.full-matrix == 'true' && ',full-matrix' || '' }}
           note: |
+            ${{ steps.plan.outputs.note }}
+
             ### Clearing the E2E Gate
 
             While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status, except those with the `e2e-gate-bypass` label. It turns green on all of them, without a push, as soon as one of these happens:
