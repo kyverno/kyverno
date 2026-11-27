@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: template-preserve-int64
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [namespaces]
+  matchConditions:
+  - name: test-namespace
+    expression: object.metadata.name == 'template-preserve-int64'
+  variables:
+  - name: revision
+    expression: >-
+      {
+        "apiVersion": "apps/v1",
+        "kind": "ControllerRevision",
+        "metadata": {"name": "sample", "namespace": object.metadata.name},
+        "revision": 9007199254740993,
+        "data": {"previous": [9007199254740992], "label": "9007199254740993"}
+      }
+  generate:
+  - template:
+      interpolate: cel
+      value: |
+        apiVersion: apps/v1
+        kind: ControllerRevision
+        metadata: (( variables.revision.metadata ))
+        revision: (( variables.revision.revision ))
+        data:
+          previous: (( variables.revision.data.previous ))
+          label: (( variables.revision.data.label ))
+          static:
+            replicas: 3
+            created: 2026-01-02T03:04:05Z
