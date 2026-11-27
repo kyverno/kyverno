@@ -9,23 +9,17 @@ spec:
         apiVersions: [v1]
         operations: [CREATE]
         resources: [pods]
-  variables:
-    - name: apiResponse
-      expression: >-
-       http.post(
-        "http://test-api-service.default.svc.cluster.local/",
-        {"labels": object.metadata.labels.app},{"Content-Type": "application/json"})
-    - name: envVariable
-      expression: >-
-        has(variables.apiResponse) && has(variables.apiResponse.received) && 'received' in variables.apiResponse ? variables.apiResponse.received : 'unknown'
   mutations:
     - patchType: ApplyConfiguration
       applyConfiguration:
         expression: >-
-          Object{
-            metadata: Object.metadata{
-              labels: Object.metadata.labels{
-                env: variables.envVariable
+          cel.bind(apiResponse, http.post(
+            "http://test-api-service.default.svc.cluster.local/",
+            {"labels": object.metadata.labels.app},{"Content-Type": "application/json"}),
+            Object{
+              metadata: Object.metadata{
+                labels: Object.metadata.labels{
+                  env: 'received' in apiResponse ? apiResponse.received : 'unknown'
+                }
               }
-            }
-          }
+            })

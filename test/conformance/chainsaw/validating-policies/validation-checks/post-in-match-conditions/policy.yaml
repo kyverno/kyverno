@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: post-in-match-conditions
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE]
+      resources:   [configmaps]
+  matchConditions:
+    - name: post-in-match-condition
+      expression: >-
+        has(resource.post("v1", "configmaps", {"metadata": {"name": "created-by-match-condition", "namespace": "default"}}).metadata)
+  validations:
+    - expression: "true"

@@ -83,7 +83,22 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()
 
-	extendedCompiler, variablesProvider, err := c.newExtendedEnv(libCtx, policy.GetNamespace())
+	// create a read/write env for evaluating mutations
+	extendedCompiler, variablesProvider, err := newBaseMpolEnv(libCtx, policy.GetNamespace(), false)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileExtendedError, err)))
+	}
+
+	// create a read-only env for evaluating variables and match conditions. expressions
+	// in either of those policy fields shouldn't be allowed to mutate external state
+	roBase, _, err := newBaseMpolEnv(libCtx, policy.GetNamespace(), true)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileExtendedError, err)))
+	}
+
+	// we don't wanna have to compile variables twice (through the variables provider of
+	// each env). create another read-only with the variables provider of the read/write env
+	roEnv, err := compiler.NewWithVariablesProvider(roBase, variablesProvider)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileExtendedError, err)))
 	}
@@ -95,8 +110,11 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 		return nil, allErrs
 	}
 
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), extendedCompiler, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), roEnv, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
+		if ro := compiler.ReadOnlyVariableErrors(path.Child("variables"), spec.Variables...); len(ro) > 0 {
+			return nil, append(allErrs, ro...)
+		}
 		return nil, append(allErrs, errs...)
 	}
 
@@ -104,8 +122,11 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, roEnv, c.trace, spec.MatchConditions...)
 		if errs != nil {
+			if ro := compiler.ReadOnlyMatchConditionErrors(path, spec.MatchConditions...); len(ro) > 0 {
+				return nil, append(allErrs, ro...)
+			}
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
@@ -114,14 +135,17 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 
 	var targetExpression cel.Program
 	if expression := policy.GetTargetMatchConstraints().Expression; expression != "" {
-		ast, issues := extendedCompiler.Compile(expression)
+		ast, issues := roEnv.Compile(expression)
 		if err := issues.Err(); err != nil {
+			if call := compiler.FindWriteCall(expression); call != "" {
+				return nil, append(allErrs, compiler.WriteCallError(path.Child("targetMatchConstraints").Child("expression"), call))
+			}
 			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
 		}
-		targetExpression, err = compiler.NewProgram(extendedCompiler, ast)
+		targetExpression, err = compiler.NewProgram(roEnv, ast)
 		if err != nil {
 			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
 		}
@@ -131,8 +155,11 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	var tracedTargetMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("targetMatchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.TargetMatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, roEnv, c.trace, spec.TargetMatchConditions...)
 		if errs != nil {
+			if ro := compiler.ReadOnlyMatchConditionErrors(path, spec.TargetMatchConditions...); len(ro) > 0 {
+				return nil, append(allErrs, ro...)
+			}
 			return nil, append(allErrs, errs...)
 		}
 		targetMatchConditions = append(targetMatchConditions, programs...)
@@ -142,7 +169,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedCompiler, polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), roEnv, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -210,7 +237,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	}, allErrs
 }
 
-func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+func newBaseMpolEnv(libCtx libs.Context, namespace string, readOnly bool) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -252,6 +279,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 			resource.Context{ContextInterface: libCtx},
 			namespace,
 			resource.Latest(),
+			readOnly,
 		),
 		image.Lib(
 			image.Latest(),
@@ -296,6 +324,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libCtx.GetHTTPMocks())},
 			http.Latest(),
+			readOnly,
 		),
 	}
 

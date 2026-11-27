@@ -58,7 +58,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseDpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	roEnv, variablesProvider, err := c.createBaseDpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -66,16 +66,22 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	path := field.NewPath("spec")
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), roEnv, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
+		if ro := compiler.ReadOnlyVariableErrors(path.Child("variables"), spec.Variables...); len(ro) > 0 {
+			return nil, append(allErrs, ro...)
+		}
 		return nil, append(allErrs, errs...)
 	}
 	conditions := make([]cel.Program, 0, len(spec.Conditions))
 	var tracedConditions []compiler.TracedProgram
 	{
 		path := path.Child("conditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.Conditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, roEnv, c.trace, spec.Conditions...)
 		if errs != nil {
+			if ro := compiler.ReadOnlyMatchConditionErrors(path, spec.Conditions...); len(ro) > 0 {
+				return nil, append(allErrs, ro...)
+			}
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
@@ -84,7 +90,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), roEnv, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -105,7 +111,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	}, nil
 }
 
-func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string, readOnly bool) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -151,6 +157,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 			resource.Context{ContextInterface: libsctx},
 			namespace,
 			compiler.KyvernoVersion,
+			readOnly,
 		),
 		hash.Lib(
 			compiler.KyvernoVersion,
@@ -184,6 +191,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			compiler.KyvernoVersion,
+			readOnly,
 		),
 	}
 

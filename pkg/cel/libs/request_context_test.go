@@ -296,7 +296,7 @@ func (f *fakeDClient) GetDynamicInterface() dynamic.Interface { return f.dyn }
 func TestRequestContext_ResourceCallsUseEvaluationContext(t *testing.T) {
 	recorder := &ctxRecorder{}
 	provider := &contextProvider{client: &fakeDClient{dyn: recorder}}
-	env, err := cel.NewEnv(resource.Lib(resource.Context{ContextInterface: provider}, "", resource.Latest()))
+	env, err := cel.NewEnv(resource.Lib(resource.Context{ContextInterface: provider}, "", resource.Latest(), false))
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request"))

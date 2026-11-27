@@ -8,7 +8,7 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
@@ -87,23 +87,36 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logging.GlobalLogger())
 	}
 
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts)
+	// create a read/write env for evaluating validations
+	env, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, false)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	env, err := ivpolEnvSet.Env(environment.StoredExpressions)
+	// create a read-only env for evaluating variables and match conditions. expressions
+	// in either of those policy fields shouldn't be allowed to mutate external state
+	roBase, _, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, true)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	// we don't wanna have to compile variables twice (through the variables provider of
+	// each env). create another read-only with the variables provider of the read/write env
+	roEnv, err := compiler.NewWithVariablesProvider(roBase, variablesProvider)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
-	var tracedMatchConditions []engine.TracedProgram
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := engine.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, roEnv, c.trace, spec.MatchConditions...)
 		if errs != nil {
+			if ro := compiler.ReadOnlyMatchConditionErrors(path, spec.MatchConditions...); len(ro) > 0 {
+				return nil, append(allErrs, ro...)
+			}
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
@@ -111,27 +124,30 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
 		}
 	}
-	matchImageEnv, err := engine.NewMatchImageEnv()
+	matchImageEnv, err := compiler.NewMatchImageEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	matchImageReferences, errs := engine.CompileMatchImageReferences(path.Child("matchImageReferences"), matchImageEnv, spec.MatchImageReferences...)
+	matchImageReferences, errs := compiler.CompileMatchImageReferences(path.Child("matchImageReferences"), matchImageEnv, spec.MatchImageReferences...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	var imageExtractors engine.ImageExtractorProfiles
+	var imageExtractors compiler.ImageExtractorProfiles
 	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
-		imageExtractors[0], errs = engine.CompileImageExtractors(path.Child("images"), env, nil, spec.ImageExtractors...)
+		imageExtractors[0], errs = compiler.CompileImageExtractors(path.Child("images"), env, nil, spec.ImageExtractors...)
 	} else {
-		imageExtractors, errs = engine.CompileImageExtractorProfiles(path.Child("images"), env, spec.ImageExtractors...)
+		imageExtractors, errs = compiler.CompileImageExtractorProfiles(path.Child("images"), env, spec.ImageExtractors...)
 	}
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	variables, tracedVariables, errs := engine.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), roEnv, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
+		if ro := compiler.ReadOnlyVariableErrors(path.Child("variables"), spec.Variables...); len(ro) > 0 {
+			return nil, append(allErrs, ro...)
+		}
 		return nil, append(allErrs, errs...)
 	}
 	for name, t := range tracedVariables {
@@ -147,12 +163,12 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		}
 	}
 
-	validations := make([]engine.Validation, 0, len(spec.Validations))
+	validations := make([]compiler.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := engine.CompileValidation(path, env, rule, c.trace)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -169,7 +185,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		path := path.Child("auditAnnotations")
 		for i, auditAnnotation := range spec.AuditAnnotations {
 			path := path.Index(i)
-			program, errs := engine.CompileAuditAnnotation(path, env, auditAnnotation)
+			program, errs := compiler.CompileAuditAnnotation(path, env, auditAnnotation)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -177,13 +193,13 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		}
 	}
 
-	compiledExceptions := make([]engine.Exception, 0, len(exceptions))
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := engine.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), roEnv, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, engine.Exception{
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
 			Exception:       polex,
 			MatchConditions: polexMatchConditions,
 		})
@@ -221,22 +237,22 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option) (*environment.EnvSet, *engine.VariablesProvider, error) {
-	baseOpts := engine.DefaultEnvOptions()
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, readOnly bool) (*cel.Env, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
-		cel.Variable(engine.ResourceKey, resource.ContextType),
-		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
-		cel.Variable(engine.ObjectKey, cel.DynType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+		cel.Variable(compiler.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(compiler.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
 	)
 
 	if ivpol.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeKubernetes {
 		baseOpts = append(baseOpts,
-			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
-			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
-			cel.Variable(engine.OldObjectKey, cel.DynType),
-			cel.Variable(engine.VariablesKey, engine.VariablesType),
+			cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+			cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+			cel.Variable(compiler.OldObjectKey, cel.DynType),
+			cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		)
 	}
 
@@ -246,8 +262,8 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		return nil, nil, err
 	}
 
-	variablesProvider := engine.NewVariablesProvider(env.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(engine.NamespaceType, engine.RequestType)
+	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
 		return nil, nil, err
@@ -258,7 +274,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	namespace := ivpol.GetNamespace()
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(libsctx, namespace)},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			globalcontext.Latest(),
 		),
 		image.Lib(
@@ -274,6 +290,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			resource.Context{ContextInterface: libsctx},
 			namespace,
 			resource.Latest(),
+			readOnly,
 		),
 		user.Lib(
 			user.Latest(),
@@ -305,14 +322,15 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			gzip.Latest(), 0,
 		),
 		http.Lib(
-			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			http.Latest(),
+			readOnly,
 		),
 	}
 
-	// engine.BaseEnvSet (aliased import of pkg/cel/compiler), not base.Extend: registers
+	// compiler.BaseEnvSet (aliased import of pkg/cel/compiler), not base.Extend: registers
 	// CostLib last, in this one Extend call (see pkg/cel/compiler/env.go).
-	extendedBase, err := engine.BaseEnvSet(ivpolCompilerVersion,
+	extendedBase, err := compiler.BaseEnvSet(ivpolCompilerVersion,
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
 			EnvOptions:        baseOpts,
@@ -326,7 +344,13 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	if err != nil {
 		return nil, nil, err
 	}
-	return extendedBase, variablesProvider, nil
+
+	extendedEnv, err := extendedBase.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return extendedEnv, variablesProvider, nil
 }
 
 func getAttestations(att []v1beta1.Attestation) map[string]string {

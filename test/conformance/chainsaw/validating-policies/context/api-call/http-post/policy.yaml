@@ -11,13 +11,10 @@ spec:
         apiVersions: ["v1"]
         resources: ["pods"]
         operations: ["CREATE"]
-  variables:
-    - name: response
-      expression: >-
+  validations:
+    - expression: >-
        http.post(
         "http://test-api-service.default.svc.cluster.local/",
-        {"labels": object.metadata.labels.app},{"Content-Type": "application/json"})
-  validations:
-    - expression: variables.response.received == "test"
+        {"labels": object.metadata.labels.app},{"Content-Type": "application/json"}).received == "test"
       messageExpression: >-
-       'External POST call did not return the expected response ' + string(variables.response.received)
+       'External POST call did not return the expected response ' + string(object.metadata.labels.app)

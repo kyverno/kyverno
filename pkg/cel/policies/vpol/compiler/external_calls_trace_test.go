@@ -17,33 +17,38 @@ func TestCompile_NoTrackingTwinForCallsThatMustNotRunTwice(t *testing.T) {
 	tests := []struct {
 		expression string
 		want       string
+		write      bool
 	}{
-		{`http.Get('http://example.invalid').ok == true`, "http.Get"},
-		{`http.Post('http://example.invalid', {'a': 1}).ok == true`, "http.Post"},
-		{`http.Client('').Post('http://example.invalid', {'a': 1}).ok == true`, "http.Post"},
-		{`resource.Get('v1', 'configmaps', 'default', 'x').data.a == 'b'`, "resource.Get"},
-		{`resource.List('v1', 'configmaps', 'default').items.size() > 0`, "resource.List"},
-		{`resource.Post('v1', 'configmaps', 'default', {'a': 1}).metadata.name != ''`, "resource.Post"},
-		{`image.GetMetadata('nginx:1.27').config != null`, "image.GetMetadata"},
-		{`random() != ''`, "random"},
-		{`time.now() > timestamp('2020-01-01T00:00:00Z')`, "time.now"},
-		{`object.metadata.namespace == 'prod'`, ""},
-		{`has(object.metadata.labels) && 'team' in object.metadata.labels`, ""},
+		{`http.Get('http://example.invalid').ok == true`, "http.Get", false},
+		{`http.Post('http://example.invalid', {'a': 1}).ok == true`, "http.Post", true},
+		{`http.Client('').Post('http://example.invalid', {'a': 1}).ok == true`, "http.Post", true},
+		{`resource.Get('v1', 'configmaps', 'default', 'x').data.a == 'b'`, "resource.Get", false},
+		{`resource.List('v1', 'configmaps', 'default').items.size() > 0`, "resource.List", false},
+		{`resource.Post('v1', 'configmaps', 'default', {'a': 1}).metadata.name != ''`, "resource.Post", true},
+		{`image.GetMetadata('nginx:1.27').config != null`, "image.GetMetadata", false},
+		{`random() != ''`, "random", false},
+		{`time.now() > timestamp('2020-01-01T00:00:00Z')`, "time.now", false},
+		{`object.metadata.namespace == 'prod'`, "", false},
+		{`has(object.metadata.labels) && 'team' in object.metadata.labels`, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.expression, func(t *testing.T) {
 			policy := buildTracePolicy(admissionregistrationv1.Validation{Expression: tt.expression})
 			// the same expression as a match condition and as a variable, which compile separately
-			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "condition", Expression: tt.expression}}
-			policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "value", Expression: tt.expression}}
+			if !tt.write {
+				policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "condition", Expression: tt.expression}}
+				policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "value", Expression: tt.expression}}
+			}
 			p, errs := NewCompilerWithTrace(true).Compile(policy, nil)
 			require.Empty(t, errs)
 
 			assert.Equal(t, tt.want, compiler.NotRepeatable(p.validations[0].AST))
 			hasTwin := tt.want == ""
 			assert.Equal(t, hasTwin, p.validations[0].Traced != nil, "validation")
-			assert.Equal(t, hasTwin, p.tracedMatchConditions[0].Traced != nil, "match condition")
-			assert.Equal(t, hasTwin, p.tracedVariables["value"].Traced != nil, "variable")
+			if !tt.write {
+				assert.Equal(t, hasTwin, p.tracedMatchConditions[0].Traced != nil, "match condition")
+				assert.Equal(t, hasTwin, p.tracedVariables["value"].Traced != nil, "variable")
+			}
 			assert.NotNil(t, p.validations[0].AST, "the AST is kept either way, so the trace still shows the expression")
 		})
 	}

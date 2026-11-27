@@ -77,13 +77,22 @@ is additive alongside the pre-existing `jmesPath` field on `GlobalContextEntryPr
 `pkg/validation/globalcontext/validate.go` is the only webhook-side CEL compile check, since CEL compilation can't
 live in `api/` (it already imports `api/kyverno/v2beta1`).
 
-## PolicyException CEL match-conditions are grandfathered, not retroactively re-validated
+## Variables and match conditions compile in a read-only env
+
+Every policy compiler builds a read/write env for the policy's actions and a read-only env (`readOnly=true` on the
+sdk `resource`/`http` libs, which drops `post`/`Post`) for variables, match conditions, mpol target matching and
+PolicyException match conditions. `compiler.NewWithVariablesProvider` points the read/write env's
+`VariablesProvider` at the read-only env so variables are compiled once and their types are visible to both.
+`pkg/cel/compiler/readonly.go` turns a `post` call in those fields into a `Forbidden` error instead of the generic
+CEL one.
+
+## PolicyException CEL match-conditions compile under one env at admission and execution
 
 `pkg/cel/compiler/policy_exception.go`'s `CompilePolicyExceptionMatchConditions` caps `matchConditions` at 64
-entries and compiles **already-stored** expressions (from the exception's previous version) under a looser
-`StoredExpressions` environment while brand-new expressions get the stricter `NewExpressions` environment.
-Tightening CEL validation rules later won't retroactively break an already-admitted `PolicyException` unless its
-expression text itself changes.
+entries and compiles every expression against the caller-supplied env. The celexception webhook passes
+`vpol/compiler.NewExceptionEnv(ns, true)`, a read-only `StoredExpressions` env. An exception's compensating-control
+`validations` are actions, not matching, so they compile against `NewExceptionEnv(ns, false)` and may call `post`. There is no grandfathering of previously
+stored expressions anymore: an update re-validates all of them under the same env.
 
 ## `ExceptionScope` is the only exception matcher
 

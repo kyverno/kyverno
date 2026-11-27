@@ -61,6 +61,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 			resource.Context{ContextInterface: libsctx},
 			namespace,
 			compiler.KyvernoVersion,
+			true,
 		),
 		user.Lib(
 			compiler.KyvernoVersion,
@@ -94,6 +95,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		http.Lib(
 			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
 			compiler.KyvernoVersion,
+			true,
 		),
 	}
 

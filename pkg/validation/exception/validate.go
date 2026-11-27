@@ -98,7 +98,7 @@ func ValidateCompensatingControlExpressions(polex *policiesv1beta1.PolicyExcepti
 	}) {
 		return nil
 	}
-	env, err := vpolcompiler.NewExceptionEnv(polex.GetNamespace())
+	env, err := vpolcompiler.NewExceptionEnv(polex.GetNamespace(), false)
 	if err != nil {
 		// failing to build our own environment is not the author's fault, and rejecting the
 		// write would be the wrong way to report it; the engine surfaces it on the policy

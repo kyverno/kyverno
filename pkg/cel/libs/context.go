@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -35,7 +36,11 @@ import (
 // in the controller main functions
 var LibraryContext Context
 
+var libraryContextMu sync.Mutex
+
 func GetLibsCtx() Context {
+	libraryContextMu.Lock()
+	defer libraryContextMu.Unlock()
 	if LibraryContext == nil {
 		klog.V(2).Info("global library context was nil, setting to a fake context. If a real context is needed ensure that the variable is set")
 		LibraryContext = NewFakeContextProvider()

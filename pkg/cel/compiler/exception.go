@@ -36,7 +36,7 @@ func (e Exception) IsExpired() bool {
 // CompileExceptionsWithValidations compiles each exception's match conditions and compensating
 // controls, sorted by namespace/name: informer order is not guaranteed, and the first refusal
 // supplies the reported message, so an unsorted list would vary that message between requests.
-func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta1.PolicyException) ([]Exception, field.ErrorList) {
+func CompileExceptionsWithValidations(matchEnv, validationsEnv *cel.Env, exceptions []*policiesv1beta1.PolicyException) ([]Exception, field.ErrorList) {
 	var allErrs field.ErrorList
 	sorted := slices.Clone(exceptions)
 	slices.SortFunc(sorted, func(a, b *policiesv1beta1.PolicyException) int {
@@ -50,7 +50,7 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 		// root the path at the exception, so an error in one is not reported as if it were in the
 		// policy's own spec
 		path := field.NewPath("exception").Key(polex.GetNamespace() + "/" + polex.GetName()).Child("spec")
-		matchConditions, errs := CompileMatchConditions(path.Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		matchConditions, errs := CompileMatchConditions(path.Child("matchConditions"), matchEnv, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -63,7 +63,7 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 		for i, rule := range polex.Spec.Validations {
 			// an exception's own compensating-control validations are not traced (no Exceptions
 			// layer exists on trace.Decision yet), so trace is always false here
-			validation, errs := CompileValidation(validationsPath.Index(i), env, rule, false)
+			validation, errs := CompileValidation(validationsPath.Index(i), validationsEnv, rule, false)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
