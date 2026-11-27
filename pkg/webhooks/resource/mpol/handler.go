@@ -27,6 +27,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -136,7 +137,27 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		logger.Error(err, "mutation failures")
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+	logAppliedMutations(logger, response)
 	return resp
+}
+
+// logAppliedMutations logs each policy whose own output differs from the resource it received,
+// so a policy is never credited with another policy's patch.
+func logAppliedMutations(logger logr.Logger, response mpolengine.EngineResponse) {
+	if !logger.V(2).Enabled() {
+		return
+	}
+	previous := response.Resource
+	for _, p := range response.Policies {
+		if p.PatchedResource == nil {
+			continue
+		}
+		changed := previous == nil || !apiequality.Semantic.DeepEqual(previous.Object, p.PatchedResource.Object)
+		previous = p.PatchedResource
+		if changed {
+			logger.V(2).Info("mutation rules from policy applied successfully", "policy", p.Policy.GetName())
+		}
+	}
 }
 
 // logDecisionTraces writes the decision trace of every policy that has one to the log. A policy
