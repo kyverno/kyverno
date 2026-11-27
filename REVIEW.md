@@ -40,13 +40,15 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   should come from the corresponding `make codegen-*` target, not a hand edit — several of them (`pkg/clients/**`)
   carry no `// DO NOT EDIT` header, so this isn't always obvious from the file itself.
 - **Codegen freshness, code *and* docs**: CI runs this as two separate required checks —
-  `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` job (`make codegen-all-code` then
-  `make verify-codegen`) and `verify-codegen-docs` (an explicit-success gate over isolated `codegen-api-docs`
-  and `codegen-cli-api-docs` matrix jobs, each followed by the same full-tree check, which is just
-  `git diff --exit-code`). These docs targets read source types and write disjoint `docs/user/crd/` and
-  `docs/user/cli/crd/` directories; keep the matrix in sync with `codegen-all-docs` if adding targets.
-  Running `make codegen-all` locally covers both before pushing; running only
-  `codegen-all-code` can pass one job and still fail the other.
+  `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` (an explicit-success gate over isolated
+  matrix jobs for independent code generation groups `codegen-api-all`, `codegen-client-all`,
+  `codegen-crds-manifests`, `codegen-cli-api-group-resources`, `codegen-cli-docs`, `codegen-helm-docs`,
+  and `codegen-fix-all`, each followed by a full-tree check via `make verify-codegen`) and
+  `verify-codegen-docs` (an explicit-success gate over isolated `codegen-api-docs` and `codegen-cli-api-docs`
+  matrix jobs, each followed by the same full-tree check). These target groups read source types and write
+  disjoint output files; keep the code matrix in sync with `codegen-all-code` and the docs matrix in sync
+  with `codegen-all-docs` if adding targets. Running `make codegen-all` locally covers both before pushing;
+  running only `codegen-all-code` can pass one gate and still fail the other.
 - **CODEOWNERS coverage**: does the changed path have its listed owner as a reviewer, or at least aware?
 
 ## If the PR touches `api/`
@@ -59,8 +61,8 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
 - **A CRD schema change touches more files than `config/crds/`.** The generated CRD YAML for a given kind is
   duplicated into `config/crds/`, `cmd/cli/kubectl-kyverno/data/crds/` (the CLI's offline copy), the Helm chart
   under `charts/kyverno/charts/crds/templates/`, and the install manifest `config/install-latest-testing.yaml` —
-  all four move together under `make codegen-all-code` (its `codegen-crds-all`, `codegen-cli-all`,
-  `codegen-helm-all`, and `codegen-manifest-all` sub-targets each cover one). If a reviewer only checks `config/crds/`
+  all four move together under `make codegen-all-code` (it reaches `codegen-crds-manifests`, which runs
+  `codegen-crds-all`, `codegen-cli-crds`, `codegen-helm-crds`, and `codegen-manifest-all`, each covering one). If a reviewer only checks `config/crds/`
   for a schema change, the other three can silently drift — `make verify-codegen` is the actual guarantee, not a
   manual diff of one directory.
 - **A new/changed `+kubebuilder:deprecatedversion:warning="..."` marker has a hard 256-character limit** —

@@ -19,29 +19,67 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify-codegen-code:
-    name: Verify codegen (code)
+  generate-codegen-code:
+    name: Generate codegen code (${{ matrix.group }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: api
+            target: codegen-api-all
+          - group: client
+            target: codegen-client-all
+          - group: crds
+            target: codegen-crds-manifests
+          - group: cli-resources
+            target: codegen-cli-api-group-resources
+          - group: cli-docs
+            target: codegen-cli-docs
+          - group: helm-docs
+            target: codegen-helm-docs
+          - group: fix-tests
+            target: codegen-fix-all
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Generate code
-        run: make codegen-all-code
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          start=$SECONDS
+          summarize() {
+            printf '%s: %ss\n' "$TARGET" "$((SECONDS - start))" >> "$GITHUB_STEP_SUMMARY"
+          }
+          trap summarize EXIT
+          make "$TARGET"
       - name: Verify codegen is up to date
         run: make verify-codegen
       - name: Create codegen patch
         if: failure()
         run: |
-          git diff > codegen-code.patch
-          echo 'Codegen is out of date. Download the codegen-code-patch artifact, then run `git apply codegen-code.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
+          git diff > codegen-code-${{ matrix.group }}.patch
+          echo 'Codegen is out of date. Download the codegen-code-${{ matrix.group }}-patch artifact, then run `git apply codegen-code-${{ matrix.group }}.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload codegen patch
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codegen-code-patch
-          path: codegen-code.patch
+          name: codegen-code-${{ matrix.group }}-patch
+          path: codegen-code-${{ matrix.group }}.patch
+
+  verify-codegen-code:
+    name: Verify codegen (code)
+    if: always()
+    needs:
+      - generate-codegen-code
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require all code generators to succeed
+        env:
+          RESULT: ${{ needs.generate-codegen-code.result }}
+        run: test "$RESULT" = success
 
   generate-codegen-docs:
     name: Generate codegen docs (${{ matrix.group }})
