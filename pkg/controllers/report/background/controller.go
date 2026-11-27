@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -285,7 +284,7 @@ func (c *controller) addVP(obj policiesv1beta1.ValidatingPolicyLike) {
 }
 
 func (c *controller) updateVP(old, obj policiesv1beta1.ValidatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -299,7 +298,7 @@ func (c *controller) addMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -313,7 +312,7 @@ func (c *controller) addIVP(obj policiesv1beta1.ImageValidatingPolicyLike) {
 }
 
 func (c *controller) updateIVP(old, obj policiesv1beta1.ImageValidatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -472,6 +471,18 @@ func (c *controller) needsReconcile(
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) (string, bool, bool, error) {
+	return c.needsReconcileWithExceptions(namespace, name, hash, vapBindings, mapBindings, nil, policies...)
+}
+
+func (c *controller) needsReconcileWithExceptions(
+	namespace string,
+	name string,
+	hash string,
+	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	celexceptions []*policiesv1beta1.PolicyException,
+	policies ...engineapi.GenericPolicy,
+) (string, bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -499,10 +510,7 @@ func (c *controller) needsReconcile(
 		}
 	}
 	// if a policy or an exception changed, we need a partial reconcile
-	expected := map[string]string{}
-	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
-	}
+	expected := c.policyRevisions(policies, celexceptions)
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
@@ -559,10 +567,7 @@ func (c *controller) reconcileReport(
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
-	expected := map[string]string{}
-	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
-	}
+	expected := c.policyRevisions(policies, celexceptions)
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
@@ -573,6 +578,28 @@ func (c *controller) reconcileReport(
 	for key, value := range observed.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
 			actual[key] = value
+		}
+	}
+	// A binding update scans its native policy as a whole. Use the same
+	// decision for retention so unchanged bindings cannot keep duplicate results.
+	rescan := map[string]bool{}
+	for _, policy := range policies {
+		label := reportutils.PolicyLabel(policy)
+		rescan[label] = full || actual[label] != expected[label] || policyExceptionRevisionChanged(policy, expected, actual)
+		if policy.AsValidatingAdmissionPolicy() != nil {
+			for _, binding := range vapBindings {
+				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
+					rescan[label] = true
+					break
+				}
+			}
+		} else if policy.AsMutatingAdmissionPolicy() != nil {
+			for _, binding := range mapBindings {
+				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] != binding.GetResourceVersion() {
+					rescan[label] = true
+					break
+				}
+			}
 		}
 	}
 	var ruleResults []openreportsv1alpha1.ReportResult
@@ -602,25 +629,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			// The result is kept as it is if:
-			// 1. The Kyverno policy and its matched exceptions are unchanged
-			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
-			keepResult := true
-			exception := result.Properties["exceptions"]
-			exceptions := strings.Split(exception, ",")
-			for _, exception := range exceptions {
-				exceptionLabel := policyNameToLabel[exception]
-				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
-					keepResult = false
-					break
-				}
-			}
-			label := policyNameToLabel[result.Policy]
-			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
-			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
-			if (label != "" && expected[label] == actual[label]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
-				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
+			if !rescan[policyNameToLabel[result.Policy]] && keepResultForEffectiveRevision(result, policyNameToLabel, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -634,23 +643,7 @@ func (c *controller) reconcileReport(
 			continue
 		}
 
-		reevaluate := false
-		if policy.AsValidatingAdmissionPolicy() != nil {
-			for _, binding := range vapBindings {
-				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
-					reevaluate = true
-					break
-				}
-			}
-		} else if policy.AsMutatingAdmissionPolicy() != nil {
-			for _, binding := range mapBindings {
-				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] != binding.GetResourceVersion() {
-					reevaluate = true
-					break
-				}
-			}
-		}
-		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
+		if rescan[reportutils.PolicyLabel(policy)] {
 			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter, celengine.ExceptionScope(c.exceptionNamespace))
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
@@ -668,14 +661,9 @@ func (c *controller) reconcileReport(
 			delete(desired.GetLabels(), key)
 		}
 	}
-	for _, policy := range policies {
-		reportutils.SetPolicyLabel(desired, policy)
-	}
-	for _, binding := range vapBindings {
-		reportutils.SetValidatingAdmissionPolicyBindingLabel(desired, binding)
-	}
-	for _, binding := range mapBindings {
-		reportutils.SetMutatingAdmissionPolicyBindingLabel(desired, binding)
+	// Persist the exact revisions used for reconciliation and retention.
+	for label, revision := range expected {
+		controllerutils.SetLabel(desired, label, revision)
 	}
 	reportutils.SetResourceVersionLabels(desired, target)
 	reportutils.SetResults(desired, ruleResults...)
@@ -873,7 +861,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, vapBindings, mapBindings, policies...)
+	observedHash, needsReconcile, full, err := c.needsReconcileWithExceptions(namespace, name, r.Hash, vapBindings, mapBindings, celexceptions, policies...)
 	if err != nil {
 		return err
 	}

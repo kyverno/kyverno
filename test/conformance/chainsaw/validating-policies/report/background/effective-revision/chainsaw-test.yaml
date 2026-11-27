@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background-effective-revision
+spec:
+  concurrent: false
+  steps:
+  - name: create target before the background-only policy
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: background-effective-revision
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: target
+            namespace: background-effective-revision
+            labels:
+              test.kyverno.io/effective-revision: "true"
+    - create:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: background-effective-revision
+          scope:
+            kind: ConfigMap
+            name: target
+          results:
+          - policy: background-effective-revision
+            result: fail
+          summary:
+            fail: 1
+            pass: 0
+  - name: unrelated metadata produces no background report
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          #!/bin/sh
+          set -eu
+          namespace=background-effective-revision
+          policy=background-effective-revision
+          uid=$(kubectl get configmap target -n "$namespace" -o jsonpath='{.metadata.uid}')
+          selector="audit.kyverno.io/resource.uid=$uid,audit.kyverno.io/source=background-scan"
+          # Use a raw list so the server's collection revision is preserved.
+          # An empty list is already drained; do not require a report to exist.
+          collection="/apis/reports.kyverno.io/v1/namespaces/$namespace/ephemeralreports"
+          encoded_selector=$(jq -rn --arg selector "$selector" '$selector | @uri')
+          list_url="$collection?labelSelector=$encoded_selector"
+          deadline=$(($(date +%s) + 30))
+          while :; do
+            snapshot=$(kubectl --request-timeout=5s get --raw "$list_url")
+            count=$(printf '%s' "$snapshot" | jq -er '.items | length')
+            if [ "$count" -eq 0 ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo 'background reports did not drain' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          revision=$(printf '%s' "$snapshot" | jq -er '.metadata.resourceVersion | strings | select(length > 0)')
+          encoded_revision=$(jq -rn --arg revision "$revision" '$revision | @uri')
+          generation=$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')
+          trace=$(mktemp)
+          trap 'rm -f "$trace"' EXIT
+          kubectl annotate validatingpolicy "$policy" example.com/unrelated=updated
+          test "$generation" = "$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')"
+          # Replay from the empty list's revision, including reports created
+          # and deleted before the watch connects. Let the server close the
+          # stream normally; an outer timeout or an early close is a failure.
+          watch_url="$list_url&watch=true&resourceVersion=$encoded_revision&timeoutSeconds=10"
+          started=$(date +%s)
+          if ! timeout 15s kubectl get --raw "$watch_url" > "$trace"; then
+            cat "$trace" >&2
+            echo 'background report watch failed' >&2
+            exit 1
+          fi
+          if [ "$(($(date +%s) - started))" -lt 9 ]; then
+            cat "$trace" >&2
+            echo 'background report watch ended early' >&2
+            exit 1
+          fi
+          if test -s "$trace"; then
+            cat "$trace" >&2
+            echo 'metadata-only policy update produced a background report' >&2
+            exit 1
+          fi
+  - name: a specification change still replaces the finding
+    try:
+    - script:
+        content: |
+          #!/bin/sh
+          set -eu
+          kubectl patch validatingpolicy background-effective-revision --type=merge \
+            -p '{"spec":{"validations":[{"expression":"true","message":"updated finding"}]}}'
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: background-effective-revision
+          scope:
+            kind: ConfigMap
+            name: target
+          results:
+          - policy: background-effective-revision
+            result: pass
+          summary:
+            fail: 0
+            pass: 1

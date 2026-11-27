@@ -182,7 +182,7 @@ func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstru
 }
 
 func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
-	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
+	controllerutils.SetLabel(report, PolicyLabel(policy), PolicyRevision(policy))
 }
 
 func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
