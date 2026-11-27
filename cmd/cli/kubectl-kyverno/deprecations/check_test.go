@@ -27,6 +27,8 @@ func TestDeprecationChecks_ColorEnabled(t *testing.T) {
 		res := CheckUserInfo(buf, "test-user-info.yaml", &v1alpha1.UserInfo{})
 		assert.True(t, res)
 		assert.Contains(t, buf.String(), color.BoldYellow("WARNING:"))
+		assert.Contains(t, buf.String(), "uses a deprecated schema that is no longer supported")
+		assert.NotContains(t, buf.String(), "removed in 1.15")
 		assert.True(t, ansiRegex.MatchString(buf.String()))
 	})
 
@@ -35,6 +37,8 @@ func TestDeprecationChecks_ColorEnabled(t *testing.T) {
 		res := CheckValues(buf, "test-values.yaml", &v1alpha1.Values{})
 		assert.True(t, res)
 		assert.Contains(t, buf.String(), color.BoldYellow("WARNING:"))
+		assert.Contains(t, buf.String(), "uses a deprecated schema that is no longer supported")
+		assert.NotContains(t, buf.String(), "removed in 1.15")
 		assert.True(t, ansiRegex.MatchString(buf.String()))
 	})
 
@@ -43,6 +47,8 @@ func TestDeprecationChecks_ColorEnabled(t *testing.T) {
 		res := CheckTest(buf, "test-test.yaml", &v1alpha1.Test{})
 		assert.True(t, res)
 		assert.Contains(t, buf.String(), color.BoldYellow("WARNING:"))
+		assert.Contains(t, buf.String(), "uses a deprecated schema that is no longer supported")
+		assert.NotContains(t, buf.String(), "removed in 1.15")
 		assert.True(t, ansiRegex.MatchString(buf.String()))
 	})
 }
