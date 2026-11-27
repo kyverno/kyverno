@@ -6,15 +6,21 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 )
@@ -452,6 +458,137 @@ func TestEvaluateApplyConfigurationMetadataUnderPodTemplate(t *testing.T) {
 
 			_, deploymentLabelled, _ := unstructured.NestedStringMap(patched.Object, "metadata", "labels")
 			assert.False(t, deploymentLabelled, "the Deployment's own labels must not be patched")
+		})
+	}
+}
+
+// typedAttributes evaluates a policy against a typed workload instead of the
+// Deployment that mockAttributes always returns.
+type typedAttributes struct {
+	mockAttributes
+	obj  runtime.Object
+	gvr  schema.GroupVersionResource
+	kind schema.GroupVersionKind
+}
+
+func (a *typedAttributes) GetObject() runtime.Object                { return a.obj }
+func (a *typedAttributes) GetResource() schema.GroupVersionResource { return a.gvr }
+func (a *typedAttributes) GetKind() schema.GroupVersionKind         { return a.kind }
+
+// TestEvaluateAutogenDescendantMetadataConstructor compiles the mutation autogen
+// generates for a pod policy that builds metadata through a constructor split by
+// a comment and a nested constructor, and applies it to a Deployment and a
+// CronJob. The whole metadata type-name chain has to be qualified for the pod
+// template, or the ApplyConfiguration patcher rejects the patch with a type
+// mismatch.
+func TestEvaluateAutogenDescendantMetadataConstructor(t *testing.T) {
+	ctx := context.TODO()
+	mutation := `Object{metadata: Object.metadata{
+  // The pod template carries the labels and owner references of the pod.
+  labels: {'team': 'dev'},
+  ownerReferences: [Object.metadata.ownerReferences{
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    name: 'nginx',
+    uid: 'uid-1',
+  }],
+}}`
+
+	tests := []struct {
+		name         string
+		controller   string
+		ref          string
+		obj          runtime.Object
+		gvr          schema.GroupVersionResource
+		kind         schema.GroupVersionKind
+		metadataPath []string
+	}{
+		{
+			name:         "deployments",
+			controller:   "deployments.v1.apps",
+			ref:          autogen.AutogenDefaults,
+			obj:          &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "nginx", Namespace: "default"}},
+			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			kind:         schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			metadataPath: []string{"spec", "template", "metadata"},
+		},
+		{
+			name:         "cronjobs",
+			controller:   "cronjobs.v1.batch",
+			ref:          autogen.AutogenCronjobs,
+			obj:          &batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "nginx", Namespace: "default"}},
+			gvr:          schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"},
+			kind:         schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"},
+			metadataPath: []string{"spec", "jobTemplate", "spec", "template", "metadata"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						}},
+					},
+					Mutations: []admissionregistrationv1alpha1.Mutation{{
+						PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{Expression: mutation},
+					}},
+					AutogenConfiguration: &v1beta1.MutatingPolicyAutogenConfiguration{
+						PodControllers: &v1beta1.PodControllersGenerationConfiguration{Controllers: []string{tt.controller}},
+					},
+				},
+			}
+
+			generated, err := mpolautogen.Autogen(policy)
+			require.NoError(t, err)
+			rule, ok := generated[tt.ref]
+			require.True(t, ok, "expected a %q rule", tt.ref)
+			require.Len(t, rule.Spec.Mutations, 1)
+
+			compiled, errs := NewCompiler().Compile(&v1beta1.MutatingPolicy{Spec: v1beta1.MutatingPolicySpec{
+				Variables: rule.Spec.Variables,
+				Mutations: rule.Spec.Mutations,
+			}}, nil)
+			require.Empty(t, errs)
+
+			res := compiled.Evaluate(ctx, &typedAttributes{obj: tt.obj, gvr: tt.gvr, kind: tt.kind}, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+			require.NotNil(t, res)
+			require.NoError(t, res.Error)
+			patched := res.PatchedResource
+			require.NotNil(t, patched)
+
+			refs, found, err := unstructured.NestedSlice(patched.Object, append(tt.metadataPath, "ownerReferences")...)
+			require.NoError(t, err)
+			require.True(t, found, "expected the pod template owner references to be patched: %v", patched.Object)
+			require.Len(t, refs, 1)
+			owner, ok := refs[0].(map[string]any)
+			require.True(t, ok, "unexpected owner reference shape: %v", refs[0])
+			assert.Equal(t, "nginx", owner["name"])
+
+			labels, found, err := unstructured.NestedStringMap(patched.Object, append(tt.metadataPath, "labels")...)
+			require.NoError(t, err)
+			require.True(t, found, "expected the pod template labels to be patched: %v", patched.Object)
+			assert.Equal(t, "dev", labels["team"])
+
+			_, workloadRefs, _ := unstructured.NestedSlice(patched.Object, "metadata", "ownerReferences")
+			assert.False(t, workloadRefs, "the workload's own metadata must not be patched")
+
+			workloadLabels, _, err := unstructured.NestedStringMap(
+				patched.Object,
+				"metadata",
+				"labels",
+			)
+			require.NoError(t, err)
+			assert.NotContains(t, workloadLabels, "team")
 		})
 	}
 }
