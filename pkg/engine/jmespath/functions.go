@@ -995,11 +995,19 @@ func jpTruncate(arguments []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if math.IsNaN(length.Float()) {
+		return nil, formatError(genericError, truncate, "length must not be NaN")
+	}
 
 	if length.Float() < 0 {
 		normalizedLength = float64(0)
 	} else {
 		normalizedLength = length.Float()
+	}
+	// a length that covers the whole string leaves it unchanged; checking first also keeps
+	// lengths too large for an int (or infinite) from overflowing into a negative length
+	if normalizedLength >= float64(len(str.String())) {
+		return str.String(), nil
 	}
 
 	return trunc.Truncator(str.String(), int(normalizedLength), trunc.CutStrategy{}), nil
