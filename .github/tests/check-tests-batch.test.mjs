@@ -80,6 +80,25 @@ test('lists the commits since the last green run, newest first, with their pull 
   assert.ok(!md.includes('New in this run'));
 });
 
+test('lists the authors of merged pull requests to mention, without bots or duplicates', async () => {
+  const pr = (number, login, type = 'User', extra = {}) =>
+    ({ number, html_url: `pr/${number}`, merged_at: 'x', base: { ref: 'main' }, user: { login, type }, ...extra });
+  const commits = [commit('b', 'one'), commit('c', 'two'), commit('d', 'three'), commit('e', 'four'), commit('9', 'five', 'direct')];
+  const prs = {
+    [sha('b')]: [pr(1, 'zoe')],
+    [sha('c')]: [pr(2, 'alice')],
+    [sha('d')]: [pr(3, 'dependabot[bot]', 'Bot')],
+    [sha('e')]: [pr(4, 'alice'), pr(5, 'other', 'User', { merged_at: null }), pr(6, 'bob')],
+  };
+  const { outputs } = await run({ green: [wfRun(90, 40, sha('a'), 'success')], commits, prs });
+  assert.equal(outputs['pr-authors'], 'alice bob zoe');
+});
+
+test('without a batch range there is nobody to mention', async () => {
+  const { outputs } = await run({});
+  assert.equal(outputs['pr-authors'], '');
+});
+
 test('marks the commits the previous failing run did not test', async () => {
   const commits = [commit('b', 'old'), commit('c', 'new one'), commit('d', 'new two')];
   const { outputs } = await run({

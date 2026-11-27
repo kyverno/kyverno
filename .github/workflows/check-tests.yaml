@@ -144,6 +144,9 @@ jobs:
     outputs:
       markdown: ${{ steps.summarize.outputs.markdown }}
       compare-url: ${{ steps.summarize.outputs.compare-url }}
+      # Space-separated logins of the authors of the batch's merged pull
+      # requests, which the tracking issue mentions when it is opened.
+      pr-authors: ${{ steps.summarize.outputs.pr-authors }}
     steps:
       - name: Summarize batch
         id: summarize
@@ -177,7 +180,7 @@ jobs:
               .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
               .replace(/\|/g, '\\|').replace(/@/g, '@&#8203;');
 
-            /** @returns {Promise<{ markdown: string, compareUrl?: string }>} */
+            /** @returns {Promise<{ markdown: string, compareUrl?: string, prAuthors?: string[] }>} */
             async function describeBatch() {
               const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
                 owner, repo, workflow_id: 'check-tests.yaml', branch, status: 'success', per_page: 100
@@ -215,6 +218,8 @@ jobs:
                 .slice(-MAX_COMMITS).reverse();
               const rows = [];
               const authors = new Set();
+              // Only people: a bot such as Dependabot can't be notified.
+              const prAuthors = new Set();
               for (const { c, isNew } of shown) {
                 let prs = [];
                 try {
@@ -227,6 +232,11 @@ jobs:
                 const merged = prs.filter(p => p.merged_at && p.base.ref === branch);
                 const login = merged[0]?.user?.login || c.author?.login;
                 if (login) authors.add(login);
+                for (const { user } of merged) {
+                  if (user?.login && user.type !== 'Bot' && !user.login.endsWith('[bot]')) {
+                    prAuthors.add(user.login);
+                  }
+                }
                 const cells = [
                   `[\`${c.sha.slice(0, 9)}\`](${c.html_url})`,
                   merged.map(p => `[#${p.number}](${p.html_url})`).join(', ') || '—',
@@ -257,12 +267,13 @@ jobs:
                   : '| Commit | Pull request | Author | Title |\n| --- | --- | --- | --- |',
                 ...rows,
               );
-              return { markdown: lines.join('\n'), compareUrl };
+              return { markdown: lines.join('\n'), compareUrl, prAuthors: [...prAuthors].sort() };
             }
 
-            const { markdown, compareUrl } = await describeBatch();
+            const { markdown, compareUrl, prAuthors = [] } = await describeBatch();
             core.setOutput('markdown', markdown);
             core.setOutput('compare-url', compareUrl || '');
+            core.setOutput('pr-authors', prAuthors.join(' '));
             await core.summary
               .addHeading(`Batch on ${branch} (${matrix} matrix)`, 2)
               .addRaw(markdown, true)
@@ -298,6 +309,133 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 scripts/e2e/report.py summarize e2e-reports --run-url "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+
+  # Labels the tracking issue full-matrix when this full run failed on a
+  # Kubernetes version that a reduced run doesn't test: any version between
+  # the oldest and the latest. A green reduced run then leaves the issue open
+  # (see the "Keep full-matrix failures open" step of sync-issue), so the E2E
+  # gate stays red until a green full run or a maintainer closes it. When a
+  # later full run fails only where a reduced run also tests, the label is
+  # removed again. The job acts only if the issue shows this run, so a run
+  # whose result sync-issue deferred or ignored changes nothing.
+  full-matrix-label:
+    name: Label full-matrix failures
+    if: >-
+      always() &&
+      needs.sync-issue.result == 'success' &&
+      (inputs.matrix || 'full') == 'full'
+    needs:
+      - sync-issue
+    permissions:
+      # actions: the job lists the failed jobs of this run
+      actions: read
+      issues: write
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Label full-matrix failures
+        # A failure here must not turn a green run red: the scheduler and the
+        # batch job look for green runs, and tests-rerun re-runs failed ones.
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # The name of the conformance-tests job, which prefixes the names of
+          # its matrix jobs.
+          CONFORMANCE_JOB: Conformance tests
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const LABEL = 'full-matrix';
+            const marker = `<!-- workflow-failure:${context.workflow}:${context.ref} -->`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const labelsOf = i => i.labels.map(l => (typeof l === 'string' ? l : l.name));
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'e2e-failure', per_page: 100
+            });
+            // The body links the run that last updated the issue.
+            const issue = issues.find(i => !i.pull_request && i.body && i.body.includes(marker) &&
+              i.body.includes(`(${runUrl})`));
+            if (!issue) {
+              core.info('No open tracking issue shows this run; nothing to label.');
+              return;
+            }
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner, repo, run_id: context.runId, filter: 'latest', per_page: 100
+            });
+            const prefix = `${process.env.CONFORMANCE_JOB} / `;
+            const minorOf = name => {
+              const m = /\bv1\.(\d+)\.\d+\b/.exec(name);
+              return m ? Number(m[1]) : null;
+            };
+            const conformance = jobs.filter(j => j.name.startsWith(prefix) && minorOf(j.name) !== null);
+            if (conformance.length === 0) {
+              core.warning('Found no conformance jobs with a Kubernetes version in their name; leaving the labels as they are.');
+              return;
+            }
+            // The reduced matrix tests the oldest and the latest version.
+            const minors = conformance.map(j => minorOf(j.name));
+            const oldest = Math.min(...minors);
+            const latest = Math.max(...minors);
+            const between = conformance.filter(j =>
+              minorOf(j.name) !== oldest && minorOf(j.name) !== latest);
+            // A step that times out fails its job, and the API reports a job
+            // that hit its own timeout as cancelled. A cancelled job says
+            // nothing about the version, so it neither adds nor removes the
+            // label.
+            const fullOnly = between.filter(j =>
+              j.status === 'completed' && ['failure', 'timed_out'].includes(j.conclusion));
+            const unknown = between.filter(j =>
+              j.status !== 'completed' || !['success', 'failure', 'timed_out', 'skipped'].includes(j.conclusion));
+            const labelled = labelsOf(issue).includes(LABEL);
+
+            if (fullOnly.length > 0) {
+              if (labelled) {
+                core.info(`Issue #${issue.number} already has the ${LABEL} label.`);
+                return;
+              }
+              // addLabels creates a missing label without a description, so
+              // create it first. It fails with 422 when the label exists.
+              try {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: LABEL, color: 'd93f0b',
+                  description: 'E2E failure that only the full Kubernetes matrix tests'
+                });
+              } catch (err) {
+                if (err.status !== 422) {
+                  core.warning(`Could not create the ${LABEL} label (${err.message || String(err)}).`);
+                }
+              }
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: [LABEL] });
+              const versions = [...new Set(fullOnly.map(j => minorOf(j.name)))]
+                .sort((a, b) => a - b).map(m => `v1.${m}`).join(', ');
+              const MAX_JOBS = 10;
+              const names = fullOnly.slice(0, MAX_JOBS).map(j => `- [\`${j.name}\`](${j.html_url})`);
+              const more = fullOnly.length > MAX_JOBS ? [`- …and ${fullOnly.length - MAX_JOBS} more`] : [];
+              const dispatchUrl = `${context.serverUrl}/${owner}/${repo}/actions/workflows/check-tests.yaml`;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: [
+                  `The [full run](${runUrl}) failed on Kubernetes ${versions}, which the reduced runs don't test:`,
+                  '',
+                  ...names,
+                  ...more,
+                  '',
+                  `So this issue has the \`${LABEL}\` label, and a green reduced run leaves it open. The next green full run closes it: the nightly one, or one that you start with [Run workflow](${dispatchUrl}) and the \`full\` matrix. A maintainer can also close it.`,
+                ].join('\n')
+              });
+              core.info(`Labelled issue #${issue.number} ${LABEL} (${versions}).`);
+            } else if (labelled && unknown.length > 0) {
+              core.info(`Keeping the ${LABEL} label: ${unknown.length} job(s) on a version that only the full matrix tests did not finish.`);
+            } else if (labelled) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: LABEL });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `The [full run](${runUrl}) failed only on what the reduced runs also test, so this issue no longer has the \`${LABEL}\` label, and a green reduced run closes it.`
+              });
+              core.info(`Removed the ${LABEL} label from issue #${issue.number}.`);
+            }
 
   # A run that was cancelled without a failure says nothing about the tests:
   # it must neither close the tracking issue nor open one, so the issue is
@@ -347,14 +485,46 @@ jobs:
         run: |
           echo "deferred=true" >> "$GITHUB_OUTPUT"
           echo "::notice::This first attempt failed. The Tests re-run workflow re-runs the failed jobs once, and the second attempt updates the tracking issue."
+      # A reduced run tests only the oldest and the latest Kubernetes version.
+      # When the tracking issue has the full-matrix label, the last full run
+      # failed on a version in between, which a reduced run doesn't test. So
+      # a green reduced run leaves that issue open; a green full run or a
+      # maintainer closes it. If the check fails, "Sync issue" doesn't run
+      # either: closing the issue could clear a failure the reduced run
+      # didn't test. The next run tries again.
+      - name: Keep full-matrix failures open
+        id: full-matrix-open
+        continue-on-error: true
+        if: >-
+          steps.defer.outputs.deferred != 'true' &&
+          (inputs.matrix || 'full') == 'reduced' &&
+          !contains(needs.*.result, 'failure')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const marker = `<!-- workflow-failure:${context.workflow}:${context.ref} -->`;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'e2e-failure', per_page: 100
+            });
+            const issue = issues.find(i => !i.pull_request && i.body && i.body.includes(marker) &&
+              i.labels.some(l => (typeof l === 'string' ? l : l.name) === 'full-matrix'));
+            if (issue) {
+              core.setOutput('skip', 'true');
+              core.notice(`Issue #${issue.number} tracks a failure that only the full matrix tests, so this reduced run leaves it open. A green full run closes it.`);
+            }
       - name: Sync issue
-        if: steps.defer.outputs.deferred != 'true'
+        if: >-
+          steps.defer.outputs.deferred != 'true' &&
+          steps.full-matrix-open.outcome != 'failure' &&
+          steps.full-matrix-open.outputs.skip != 'true'
         uses: ./.github/actions/workflow/failure-issue
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
           needs: ${{ toJSON(needs) }}
           commits: ${{ needs.batch.outputs.markdown }}
           commits-url: ${{ needs.batch.outputs.compare-url }}
+          mentions: ${{ needs.batch.outputs.pr-authors }}
           # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
           labels: e2e-failure
           note: |

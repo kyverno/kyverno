@@ -23,6 +23,15 @@ inputs:
     description: 'URL of the full list of commits, linked when the commits markdown is truncated'
     required: false
     default: ''
+  mentions:
+    description: >-
+      Space-separated GitHub logins to mention, for example the authors of the
+      pull requests the run tested. They are mentioned only in the body of a
+      new tracking issue, so a later run that updates it notifies nobody.
+      Duplicates and values that aren't valid logins are dropped, and at most
+      10 are mentioned.
+    required: false
+    default: ''
   labels:
     description: 'Extra labels for the tracking issue, comma-separated, in addition to workflow-failure'
     required: false
@@ -39,6 +48,7 @@ runs:
       env:
         COMMITS: ${{ inputs.commits }}
         COMMITS_URL: ${{ inputs.commits-url }}
+        MENTIONS: ${{ inputs.mentions }}
         EXTRA_LABELS: ${{ inputs.labels }}
         NOTE: ${{ inputs.note }}
       with:
@@ -280,6 +290,26 @@ runs:
             return kept.join('\n').trimEnd() + tail;
           }
 
+          /**
+           * The paragraph that mentions the given logins, put at the top of
+           * the body of a new issue only. A later update replaces the body,
+           * and editing a mention into a body notifies nobody anyway. Bots and invalid values are dropped, and the
+           * count is capped so that a large batch doesn't page everyone.
+           */
+          function mentionsSection() {
+            const MAX_MENTIONS = 10;
+            const logins = [...new Set((process.env.MENTIONS || '').split(/[\s,]+/)
+              .filter(l => /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(l)))];
+            if (logins.length === 0) {
+              return '';
+            }
+            const shown = logins.slice(0, MAX_MENTIONS).map(l => `@${l}`).join(', ');
+            const more = logins.length > MAX_MENTIONS
+              ? ` and ${logins.length - MAX_MENTIONS} more listed under **Commits**`
+              : '';
+            return `**Pull request authors in this run:** ${shown}${more}. Check whether your change caused this failure.\n\n`;
+          }
+
           const branch = context.ref;
           const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
           const headSha = context.sha;
@@ -362,13 +392,13 @@ runs:
             } else {
               try {
                 const { data: issue } = await github.rest.issues.create({
-                  owner, repo, title, body, labels: [label, ...extraLabels]
+                  owner, repo, title, body: mentionsSection() + body, labels: [label, ...extraLabels]
                 });
                 core.info(`Created issue #${issue.number}: ${issue.html_url}`);
               } catch (err) {
                 if (err.status === 422 && /Label/.test(err.message)) {
                   const { data: issue } = await github.rest.issues.create({
-                    owner, repo, title, body
+                    owner, repo, title, body: mentionsSection() + body
                   });
                   // Later runs find the issue by its workflow-failure label, and
                   // other automation by the extra ones, so an unlabelled issue
