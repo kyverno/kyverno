@@ -1,0 +1,15 @@
+apiVersion: example.com/v1
+kind: Document
+metadata:
+  name: null-data
+  namespace: default
+spec:
+  data: null
+---
+apiVersion: example.com/v1
+kind: Document
+metadata:
+  name: empty-data
+  namespace: default
+spec:
+  data: {}
