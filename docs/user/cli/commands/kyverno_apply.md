@@ -63,7 +63,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
-      --explain                            Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
+      --explain                            Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables; values that may come from a Secret are shown as (redacted), but treat the output as sensitive. With --output-format json, the traces and the summary are written as one JSON document (a trace.kyverno.io/v1alpha1 DecisionList), and everything else apply prints goes to standard error; if apply stops on an error, the document holds the decisions made before it and the error
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
@@ -74,7 +74,7 @@ kyverno apply [flags]
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
       --output-dir string                  Directory for mutated/generated resources
       --output-file string                 File for mutated/generated resources
-      --output-format string               Output format: json or yaml for policy reports/exceptions, or table for evaluation results (default "yaml")
+      --output-format string               Output format: json or yaml for policy reports/exceptions, json for --explain, or table for evaluation results (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)

@@ -75,7 +75,7 @@ func (pc *policyController) createTriggerURs(policyKey string, matchConstraints 
 	if matchConstraints == nil {
 		return nil
 	}
-	triggers := filterTriggersByNamespace(pc.getGpolTriggers(matchConstraints), namespace)
+	triggers := pc.getGpolTriggers(matchConstraints, namespace)
 	var errs []error
 	for _, trigger := range triggers {
 		ur, err := pc.newCELMutateURForTrigger(policyKey, trigger.Unstructured, trigger.SubResource)
