@@ -30,29 +30,147 @@ type scalar struct {
 	float64
 }
 
-func parseArithemticOperand(arguments []interface{}, index int, operator string) (operand, error) {
+type candidate struct {
+	isScalar    bool
+	scalar      scalar
+	hasQuantity bool
+	quantity    quantity
+	hasDuration bool
+	duration    duration
+}
+
+func parseCandidate(arguments []interface{}, index int, operator string) (candidate, error) {
+	var c candidate
 	if tmp, err := validateArg(operator, arguments, index, reflect.Float64); err == nil {
-		return scalar{float64: tmp.Float()}, nil
+		c.isScalar = true
+		c.scalar = scalar{float64: tmp.Float()}
+		return c, nil
 	} else if tmp, err = validateArg(operator, arguments, index, reflect.String); err == nil {
-		if q, err := resource.ParseQuantity(tmp.String()); err == nil {
-			return quantity{Quantity: q}, nil
-		} else if d, err := time.ParseDuration(tmp.String()); err == nil {
-			return duration{Duration: d}, nil
+		str := tmp.String()
+		if q, err := resource.ParseQuantity(str); err == nil {
+			c.hasQuantity = true
+			c.quantity = quantity{Quantity: q}
+		}
+		if d, err := time.ParseDuration(str); err == nil {
+			c.hasDuration = true
+			c.duration = duration{Duration: d}
+		}
+		if c.hasQuantity || c.hasDuration {
+			return c, nil
 		}
 	}
-	return nil, formatError(genericError, operator, "invalid operand")
+	return c, formatError(genericError, operator, "invalid operand")
+}
+
+func resolveOperand(c candidate, durationContext bool) operand {
+	if c.isScalar {
+		return c.scalar
+	}
+	if c.hasDuration && !c.hasQuantity {
+		return c.duration
+	}
+	if c.hasQuantity && !c.hasDuration {
+		return c.quantity
+	}
+	if durationContext {
+		return c.duration
+	}
+	return c.quantity
 }
 
 func parseArithemticOperands(arguments []interface{}, operator string) (operand, operand, error) {
-	left, err := parseArithemticOperand(arguments, 0, operator)
+	c1, err := parseCandidate(arguments, 0, operator)
 	if err != nil {
 		return nil, nil, err
 	}
-	right, err := parseArithemticOperand(arguments, 1, operator)
+	c2, err := parseCandidate(arguments, 1, operator)
 	if err != nil {
 		return nil, nil, err
 	}
-	return left, right, nil
+	durationContext := (c1.hasDuration && !c1.hasQuantity) || (c2.hasDuration && !c2.hasQuantity)
+	return resolveOperand(c1, durationContext), resolveOperand(c2, durationContext), nil
+}
+
+func executeSum(arguments []any) (any, error) {
+	items, ok := arguments[0].([]any)
+	if !ok {
+		return nil, formatError(typeMismatchError, sum)
+	}
+	if len(items) == 0 {
+		return nil, formatError(genericError, sum, "at least one element in the array is required")
+	}
+	if len(items) == 1 {
+		return items[0], nil
+	}
+
+	candidates := make([]candidate, len(items))
+	for i := range items {
+		c, err := parseCandidate(items, i, sum)
+		if err != nil {
+			return nil, err
+		}
+		candidates[i] = c
+	}
+
+	hasUnambiguousDuration := false
+	hasUnambiguousQuantity := false
+	hasScalar := false
+
+	for _, c := range candidates {
+		if c.isScalar {
+			hasScalar = true
+		} else if c.hasDuration && !c.hasQuantity {
+			hasUnambiguousDuration = true
+		} else if c.hasQuantity && !c.hasDuration {
+			hasUnambiguousQuantity = true
+		}
+	}
+
+	if (hasUnambiguousDuration && hasUnambiguousQuantity) ||
+		(hasScalar && (hasUnambiguousDuration || hasUnambiguousQuantity)) {
+		return nil, formatError(typeMismatchError, sum)
+	}
+
+	durationContext := hasUnambiguousDuration
+	operands := make([]operand, len(candidates))
+	for i, c := range candidates {
+		operands[i] = resolveOperand(c, durationContext)
+	}
+
+	switch first := operands[0].(type) {
+	case scalar:
+		total := first.float64
+		for _, op := range operands[1:] {
+			s, ok := op.(scalar)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total += s.float64
+		}
+		return total, nil
+	case duration:
+		total := first.Duration
+		for _, op := range operands[1:] {
+			d, ok := op.(duration)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total += d.Duration
+		}
+		return total.String(), nil
+	case quantity:
+		total := first.Quantity.DeepCopy()
+		for _, op := range operands[1:] {
+			q, ok := op.(quantity)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total.Add(q.Quantity)
+		}
+		return total.String(), nil
+	default:
+		return nil, formatError(typeMismatchError, sum)
+	}
 }
 
 // Quantity +|- Quantity          -> Quantity
