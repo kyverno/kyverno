@@ -80,6 +80,22 @@ runs:
         COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
       run: |
         cosign attach sbom --sbom ./${{ inputs.sbom-name }}-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+    # ko pushes an SPDX SBOM per platform image to the SBOM repository. Attesting each one next to its
+    # platform image makes it verifiable, and lets image copies and mirrors carry it as an OCI referrer.
+    - shell: bash
+      if: ${{ inputs.sign-image == 'true' }}
+      env:
+        IMAGE: ${{ steps.ko-publish.outputs.digest }}
+        SBOM_REPOSITORY: ${{ inputs.sbom-repository }}
+      run: |
+        set -euo pipefail
+        repository="${IMAGE%@*}"
+        docker buildx imagetools inspect --raw "$IMAGE" \
+          | jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' \
+          | while read -r digest; do
+              COSIGN_REPOSITORY="$SBOM_REPOSITORY" cosign download sbom "$repository@$digest" > sbom.spdx.json
+              cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$repository@$digest"
+            done
     - shell: bash
       id: digest
       run: |
