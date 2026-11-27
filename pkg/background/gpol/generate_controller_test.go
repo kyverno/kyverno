@@ -2,6 +2,8 @@ package gpol
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -953,4 +955,237 @@ func TestProcessUR_SyncRevertsEditMadeBeforeCacheRefresh(t *testing.T) {
 			assert.Equal(t, reportutils.CalculateResourceHash(*f.written()), f.cachedHash())
 		})
 	}
+}
+
+// TestProcessUR_PerTriggerCostBudget verifies that each RuleContext (trigger)
+// in a batched UpdateRequest gets its own background CEL cost budget so
+// generateExisting/sync batches do not exhaust a single shared 3,000,000
+// budget mid-batch, while a single trigger exceeding the background ceiling is
+// still rejected.
+func TestProcessUR_PerTriggerCostBudget(t *testing.T) {
+	t.Run("batched triggers each get their own background budget", func(t *testing.T) {
+		prevReportingCfg := reportutils.ReportingCfg
+		reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+		t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
+		prevLibsCtx := libs.LibraryContext
+		t.Cleanup(func() { libs.LibraryContext = prevLibsCtx })
+
+		const policyName = "budget-repro"
+		const namespace = "default"
+		const triggerCount = 15
+
+		policy := &policiesv1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: policyName},
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					}},
+				},
+				Variables: []admissionregistrationv1.Variable{{
+					Name:       "parsed",
+					Expression: `yaml.parse(object.data.payload)`,
+				}},
+				Generation: []policiesv1beta1.Generation{{
+					Expression: `generator.Apply(object.metadata.namespace, [
+						{
+							"apiVersion": dyn("v1"),
+							"kind": dyn("ConfigMap"),
+							"metadata": dyn({"name": object.metadata.name + "-out"}),
+							"data": dyn({"kind": string(variables.parsed.kind)})
+						}
+					])`,
+				}},
+			},
+		}
+
+		compiled, errs := gpolcompiler.NewCompiler().Compile(policy, nil)
+		require.Empty(t, errs)
+
+		// ~1.5 KB plain YAML payload: each yaml.parse costs ~300,000 units
+		// (well below the 1,000,000 per-program limit and 3,000,000 background
+		// budget), so 15 triggers total ~4,500,000 and exhaust a single shared
+		// UR-level budget around trigger #10.
+		payload := "kind: Config\npadding: " + strings.Repeat("a", 1500) + "\n"
+
+		objects := make([]runtime.Object, 0, triggerCount)
+		ruleContexts := make([]kyvernov2.RuleContext, 0, triggerCount)
+		for i := range triggerCount {
+			name := fmt.Sprintf("trigger-%02d", i)
+			uid := types.UID(fmt.Sprintf("uid-%02d", i))
+			cm := makeUnstructured("", "", "v1", "ConfigMap", name, namespace, uid, nil)
+			require.NoError(t, unstructured.SetNestedField(cm.Object, payload, "data", "payload"))
+			objects = append(objects, cm)
+			ruleContexts = append(ruleContexts, kyvernov2.RuleContext{
+				Rule: policyName,
+				Trigger: kyverno.ResourceSpec{
+					APIVersion: cm.GetAPIVersion(),
+					Kind:       cm.GetKind(),
+					Namespace:  cm.GetNamespace(),
+					Name:       cm.GetName(),
+					UID:        cm.GetUID(),
+				},
+			})
+		}
+
+		fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
+		require.NoError(t, err)
+		fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+		mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+		mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+		libsCtx, err := libs.NewContextProvider(fakeClient, nil, nil, mapper, false)
+		require.NoError(t, err)
+
+		nsResolver := func(name string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+		}
+		statusControl := &recordingStatusControl{}
+		controller := &CELGenerateController{
+			client:        fakeClient,
+			restMapper:    mapper,
+			context:       libsCtx,
+			engine:        gpolengine.NewEngine(nsResolver, nil),
+			provider:      &testProvider{policy: gpolengine.Policy{Policy: policy, CompiledPolicy: compiled}},
+			watchManager:  &WatchManager{},
+			statusControl: statusControl,
+			eventGen:      testEventGen{},
+			log:           logging.WithName("test-gpol-controller"),
+		}
+
+		ur := &kyvernov2.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{Name: "ur-batched-budget"},
+			Spec: kyvernov2.UpdateRequestSpec{
+				Type:        kyvernov2.CELGenerate,
+				Policy:      policyName,
+				RuleContext: ruleContexts,
+			},
+		}
+
+		require.NoError(t, controller.ProcessUR(ur))
+		require.False(t, statusControl.failed, "batched UR should not fail due to shared budget: %s", statusControl.message)
+		assert.True(t, statusControl.success)
+
+		for i := range triggerCount {
+			outName := fmt.Sprintf("trigger-%02d-out", i)
+			out, err := fakeClient.GetResource(context.Background(), "v1", "ConfigMap", namespace, outName)
+			require.NoError(t, err, "expected generated ConfigMap %s", outName)
+			kind, _, err := unstructured.NestedString(out.Object, "data", "kind")
+			require.NoError(t, err)
+			assert.Equal(t, "Config", kind)
+		}
+	})
+
+	t.Run("single trigger exceeding background budget is still refused", func(t *testing.T) {
+		prevReportingCfg := reportutils.ReportingCfg
+		reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+		t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
+		prevLibsCtx := libs.LibraryContext
+		t.Cleanup(func() { libs.LibraryContext = prevLibsCtx })
+
+		const policyName = "budget-single-trigger"
+		const namespace = "default"
+
+		// 12 yaml.parse variables on a single trigger (~300,000 each = ~3,600,000)
+		// each stay under the 1,000,000 per-program limit, but together exceed
+		// the 3,000,000 per-trigger background budget.
+		vars := make([]admissionregistrationv1.Variable, 12)
+		sumTerms := make([]string, 12)
+		for i := range vars {
+			vars[i] = admissionregistrationv1.Variable{
+				Name:       fmt.Sprintf("p%d", i),
+				Expression: `yaml.parse(object.data.payload)`,
+			}
+			sumTerms[i] = fmt.Sprintf("string(variables.p%d.kind)", i)
+		}
+		policy := &policiesv1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: policyName},
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					}},
+				},
+				Variables: vars,
+				Generation: []policiesv1beta1.Generation{{
+					Expression: fmt.Sprintf(`generator.Apply(object.metadata.namespace, [
+						{
+							"apiVersion": dyn("v1"),
+							"kind": dyn("ConfigMap"),
+							"metadata": dyn({"name": object.metadata.name + "-out"}),
+							"data": dyn({"kinds": %s})
+						}
+					])`, strings.Join(sumTerms, ` + "," + `)),
+				}},
+			},
+		}
+
+		compiled, errs := gpolcompiler.NewCompiler().Compile(policy, nil)
+		require.Empty(t, errs)
+
+		payload := "kind: Config\npadding: " + strings.Repeat("a", 1500) + "\n"
+		cm := makeUnstructured("", "", "v1", "ConfigMap", "heavy-trigger", namespace, "uid-heavy", nil)
+		require.NoError(t, unstructured.SetNestedField(cm.Object, payload, "data", "payload"))
+
+		fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, cm)
+		require.NoError(t, err)
+		fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+		mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+		mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+		libsCtx, err := libs.NewContextProvider(fakeClient, nil, nil, mapper, false)
+		require.NoError(t, err)
+
+		nsResolver := func(name string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+		}
+		statusControl := &recordingStatusControl{}
+		controller := &CELGenerateController{
+			client:        fakeClient,
+			restMapper:    mapper,
+			context:       libsCtx,
+			engine:        gpolengine.NewEngine(nsResolver, nil),
+			provider:      &testProvider{policy: gpolengine.Policy{Policy: policy, CompiledPolicy: compiled}},
+			watchManager:  &WatchManager{},
+			statusControl: statusControl,
+			eventGen:      testEventGen{},
+			log:           logging.WithName("test-gpol-controller"),
+		}
+
+		ur := &kyvernov2.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{Name: "ur-single-trigger-budget"},
+			Spec: kyvernov2.UpdateRequestSpec{
+				Type:   kyvernov2.CELGenerate,
+				Policy: policyName,
+				RuleContext: []kyvernov2.RuleContext{{
+					Rule: policyName,
+					Trigger: kyverno.ResourceSpec{
+						APIVersion: cm.GetAPIVersion(),
+						Kind:       cm.GetKind(),
+						Namespace:  cm.GetNamespace(),
+						Name:       cm.GetName(),
+						UID:        cm.GetUID(),
+					},
+				}},
+			},
+		}
+
+		require.NoError(t, controller.ProcessUR(ur))
+		require.True(t, statusControl.failed, "single trigger exceeding 3,000,000 background budget must still fail")
+		assert.Contains(t, statusControl.message, "per-request cost budget exceeded")
+	})
 }
