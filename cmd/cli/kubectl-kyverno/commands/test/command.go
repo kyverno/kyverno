@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -50,7 +52,12 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
-	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit)")
+	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", fmt.Sprintf("Specifies the output format (%s)", strings.Join(outputFormats.Names(""), ", ")))
+	if err := cmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return outputFormats.Names(toComplete), cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		log.Println("WARNING", err)
+	}
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
@@ -101,14 +108,8 @@ func testCommandExecute(
 	}
 	// check correct format output
 	if len(outputFormat) > 0 {
-		validFormats := map[string]bool{
-			"json":     true,
-			"yaml":     true,
-			"markdown": true,
-			"junit":    true,
-		}
-		if !validFormats[outputFormat] {
-			return fmt.Errorf("invalid format, expected (json, yaml, markdown, junit)")
+		if _, ok := outputFormats.Lookup(outputFormat); !ok {
+			return fmt.Errorf("invalid format, expected (%s)", strings.Join(outputFormats.Names(""), ", "))
 		}
 	}
 	// fetch resource filters
