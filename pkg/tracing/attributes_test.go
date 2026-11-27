@@ -29,6 +29,15 @@ func TestStringValueExceedsLimit(t *testing.T) {
 	assert.Equal(t, strings.Repeat("a", 253)+"...", got)
 }
 
+func TestStringValueTruncatesOnRuneBoundary(t *testing.T) {
+	for offset := 0; offset < 3; offset++ {
+		input := strings.Repeat("a", 251+offset) + "€" + strings.Repeat("b", 50)
+		got := StringValue(input)
+
+		assert.Equal(t, strings.Repeat("a", 251+offset)+"...", got)
+	}
+}
+
 func TestStringValueEmpty(t *testing.T) {
 	input := ""
 	got := StringValue(input)

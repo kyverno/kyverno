@@ -1,6 +1,8 @@
 package tracing
 
 import (
+	"unicode/utf8"
+
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -69,8 +71,11 @@ const (
 // Some backends impose a limit on the size of a tag value.
 func StringValue(value string) string {
 	if len(value) > limit {
-		value = value[:limit-3]
-		value += "..."
+		cut := limit - 3
+		for cut > 0 && !utf8.RuneStart(value[cut]) {
+			cut--
+		}
+		value = value[:cut] + "..."
 	}
 	return value
 }
