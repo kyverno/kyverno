@@ -13,6 +13,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type mockMetricsConfig struct {
@@ -28,15 +31,19 @@ type mockMetricsConfig struct {
 
 func (m *mockMetricsConfig) Config() config.MetricsConfiguration { return nil }
 
-type mockProbes struct{}
+type mockCertValidator struct {
+	valid bool
+	err   error
+}
 
-func (mockProbes) IsReady(context.Context) bool { return true }
-func (mockProbes) IsLive(context.Context) bool  { return true }
+func (m mockCertValidator) ValidateCert(context.Context) (bool, error) {
+	return m.valid, m.err
+}
 
 // buildTestServer wires NewServer the same way cmd/cleanup-controller/main.go does: a
 // success-only inner validation handler decorated by WithLegacyPolicyDenial() one layer up
 // (see server.go), so any denial observed here comes from the decorator, not the handler.
-func buildTestServer(t *testing.T) *httprouter.Router {
+func buildTestServer(t *testing.T, probes Probes) *httprouter.Router {
 	t.Helper()
 	successOnly := func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
 		return handlers.AdmissionResponse{UID: request.UID, Allowed: true}
@@ -45,7 +52,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 	s := NewServer(
 		tlsProvider, successOnly, successOnly,
 		&mockMetricsConfig{}, webhooks.DebugModeOptions{DumpPayload: false},
-		mockProbes{}, config.NewDefaultConfiguration(false),
+		probes, config.NewDefaultConfiguration(false),
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
@@ -59,7 +66,12 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 // the 1.20 behavioural flip: a status-subresource update is now denied, not allowed.
 func TestServerLegacyPolicyDenial(t *testing.T) {
 	t.Parallel()
-	router := buildTestServer(t)
+	router := buildTestServer(t, runtimeutils.NewRuntime(
+		logr.Discard(),
+		"",
+		informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0).Apps().V1().Deployments(),
+		mockCertValidator{valid: true},
+	))
 
 	terminatingOld := []byte(`{"metadata":{"name":"ccleanup","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":["kyverno.io/cleanup"]},"spec":{}}`)
 	terminatingNew := []byte(`{"metadata":{"name":"ccleanup","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":[]},"spec":{}}`)
@@ -123,6 +135,61 @@ func TestServerLegacyPolicyDenial(t *testing.T) {
 			require.NotNil(t, review.Response)
 			assert.Equal(t, request.UID, review.Response.UID)
 			assert.Equal(t, test.allowed, review.Response.Allowed)
+		})
+	}
+}
+
+func TestServerProbes(t *testing.T) {
+	t.Parallel()
+	deploymentInformer := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0).Apps().V1().Deployments()
+	tests := []struct {
+		name             string
+		certValid        bool
+		informerReady    bool
+		expectedReady    int
+		expectedLiveness int
+	}{
+		{
+			name:             "healthy certs and informers",
+			certValid:        true,
+			informerReady:    true,
+			expectedReady:    http.StatusOK,
+			expectedLiveness: http.StatusOK,
+		},
+		{
+			name:             "invalid cert fails readiness",
+			certValid:        false,
+			informerReady:    true,
+			expectedReady:    http.StatusInternalServerError,
+			expectedLiveness: http.StatusOK,
+		},
+		{
+			name:             "unhealthy informer fails readiness",
+			certValid:        true,
+			informerReady:    false,
+			expectedReady:    http.StatusInternalServerError,
+			expectedLiveness: http.StatusOK,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			probes := runtimeutils.NewRuntime(
+				logr.Discard(),
+				"",
+				deploymentInformer,
+				mockCertValidator{valid: test.certValid},
+				func() bool { return test.informerReady },
+			)
+			router := buildTestServer(t, probes)
+
+			readyResp := httptest.NewRecorder()
+			router.ServeHTTP(readyResp, httptest.NewRequest(http.MethodGet, config.ReadinessServicePath, nil))
+			assert.Equal(t, test.expectedReady, readyResp.Code)
+
+			liveResp := httptest.NewRecorder()
+			router.ServeHTTP(liveResp, httptest.NewRequest(http.MethodGet, config.LivenessServicePath, nil))
+			assert.Equal(t, test.expectedLiveness, liveResp.Code)
 		})
 	}
 }

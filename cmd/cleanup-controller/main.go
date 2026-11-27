@@ -47,6 +47,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/utils/clock"
 )
 
 const (
@@ -62,18 +63,7 @@ var (
 
 // TODO:
 // - helm review labels / selectors
-// - implement probes
 // - supports certs in cronjob
-
-type probes struct{}
-
-func (probes) IsReady(context.Context) bool {
-	return true
-}
-
-func (probes) IsLive(context.Context) bool {
-	return true
-}
 
 func main() {
 	var (
@@ -170,6 +160,19 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+		certRenewer, runtime := setupRuntimeProbes(
+			setup.Logger,
+			setup.KubeClient,
+			setup.KyvernoClient,
+			kyvernoInformer,
+			kyvernoDeployment,
+			clock.RealClock{},
+			serverIP,
+			renewBefore,
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// kyverno_legacy_policies_total gauge: CleanupPolicy and ClusterCleanupPolicy,
@@ -257,20 +260,6 @@ func main() {
 				)
 
 				// controllers
-				renewer := tls.NewCertRenewer(
-					setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-					tls.CertRenewalInterval,
-					tls.CAValidityDuration,
-					tls.TLSValidityDuration,
-					renewBefore,
-					serverIP,
-					config.KyvernoServiceName(),
-					config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-					config.KyvernoNamespace(),
-					caSecretName,
-					tlsSecretName,
-					keyAlgorithm,
-				)
 				var certController internal.Controller
 				if !disableCertManagerController {
 					certController = internal.NewController(
@@ -278,7 +267,7 @@ func main() {
 						certmanager.NewController(
 							caSecret,
 							tlsSecret,
-							renewer,
+							certRenewer,
 							caSecretName,
 							tlsSecretName,
 							config.KyvernoNamespace(),
@@ -436,7 +425,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			runtime,
 			setup.Configuration,
 		)
 		// start server
