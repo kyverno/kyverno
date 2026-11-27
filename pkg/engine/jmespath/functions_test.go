@@ -1840,4 +1840,12 @@ func Test_CustomFunctions_ValidationErrors(t *testing.T) {
 		_, err := jpRandom([]any{123})
 		assert.ErrorContains(t, err, "JMESPath function 'random': argument #1 is not of type string")
 	})
+	t.Run("label_match arg 1", func(t *testing.T) {
+		_, err := jpLabelMatch([]any{"not-a-map", map[string]any{}})
+		assert.ErrorContains(t, err, "JMESPath function 'label_match': argument #1 is not of type Object")
+	})
+	t.Run("label_match arg 2", func(t *testing.T) {
+		_, err := jpLabelMatch([]any{map[string]any{}, "not-a-map"})
+		assert.ErrorContains(t, err, "JMESPath function 'label_match': argument #2 is not of type Object")
+	})
 }
