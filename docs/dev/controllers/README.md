@@ -93,7 +93,7 @@ The Cleanup Controller runs CEL `DeletingPolicy`/`NamespacedDeletingPolicy` clea
 
 #### Webhook Server
 
-This component serves the webhook route that unconditionally denies writes to the legacy `CleanupPolicy` and `ClusterCleanupPolicy` kinds. See [pkg/deprecations/AGENTS.md](../../pkg/deprecations/AGENTS.md) for the denial mechanism.
+This component serves the webhook route that unconditionally denies writes to the legacy `CleanupPolicy` and `ClusterCleanupPolicy` kinds. See [pkg/deprecations/AGENTS.md](../../../pkg/deprecations/AGENTS.md) for the denial mechanism.
 
 #### Webhook Controller
 
