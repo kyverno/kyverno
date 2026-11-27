@@ -1326,3 +1326,139 @@ func TestHandle_SharedActivationBuilder_Failure(t *testing.T) {
 	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
 	assert.Equal(t, 1, requestMapInvocations, "injected failing request-map function must run exactly once across matching policies")
 }
+
+func TestHandle_NegativeObjectSelectorOnCreate(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "deny-opted-in",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "skip",
+							Operator: metav1.LabelSelectorOpNotIn,
+							Values:   []string{"true"},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "false",
+					Message:    "should never be evaluated for skip=true",
+				},
+			},
+		},
+	}
+
+	provider, err := NewProvider(
+		compiler.NewCompiler(),
+		[]policiesv1beta1.ValidatingPolicyLike{policy},
+		nil,
+		celengine.ExceptionScopeAll,
+	)
+	require.NoError(t, err)
+
+	eng := NewEngine(
+		provider,
+		func(string) *corev1.Namespace { return nil },
+		matching.NewMatcher(),
+	)
+
+	t.Run("resource with skip=true is excluded on CREATE", func(t *testing.T) {
+		req := EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "opted-out",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"opted-out","namespace":"default","labels":{"skip":"true"}}}`),
+				},
+			},
+		}
+
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		assert.Empty(t, resp.Policies[0].Rules)
+	})
+
+	t.Run("resource without skip label is matched and evaluated on CREATE", func(t *testing.T) {
+		req := EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "selected",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"selected","namespace":"default"}}`),
+				},
+			},
+		}
+
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		require.Len(t, resp.Policies[0].Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Rules[0].Status())
+	})
+
+	t.Run("resource with skip=true is excluded with DoesNotExist on CREATE", func(t *testing.T) {
+		dnePolicy := policy.DeepCopy()
+		dnePolicy.Name = "deny-opted-in-dne"
+		dnePolicy.Spec.MatchConstraints.ObjectSelector.MatchExpressions = []metav1.LabelSelectorRequirement{
+			{
+				Key:      "skip",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		}
+		dneProvider, err := NewProvider(
+			compiler.NewCompiler(),
+			[]policiesv1beta1.ValidatingPolicyLike{dnePolicy},
+			nil,
+			celengine.ExceptionScopeAll,
+		)
+		require.NoError(t, err)
+		dneEng := NewEngine(
+			dneProvider,
+			func(string) *corev1.Namespace { return nil },
+			matching.NewMatcher(),
+		)
+
+		req := EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "opted-out",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"opted-out","namespace":"default","labels":{"skip":"true"}}}`),
+				},
+			},
+		}
+
+		resp, err := dneEng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		assert.Empty(t, resp.Policies[0].Rules)
+	})
+}
+

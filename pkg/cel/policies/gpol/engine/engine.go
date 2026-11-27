@@ -70,9 +70,16 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		ns = response.Trigger.GetNamespace()
 	}
 	// create admission attributes
+	var obj, old runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	if oldObject.Object != nil {
+		old = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		old,
 		schema.GroupVersionKind(request.Request.Kind),
 		ns,
 		request.Request.Name,

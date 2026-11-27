@@ -25,6 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
@@ -188,9 +189,16 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		dryRun = *request.Request.DryRun
 	}
 
+	var obj, old runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	if oldObject.Object != nil {
+		old = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		old,
 		schema.GroupVersionKind(request.Request.Kind),
 		request.Request.Namespace,
 		request.Request.Name,
@@ -502,9 +510,16 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		dryRun = *request.Request.DryRun
 	}
 
+	var obj, old runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	if oldObject.Object != nil {
+		old = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		old,
 		schema.GroupVersionKind(request.Request.Kind),
 		request.Request.Namespace,
 		request.Request.Name,
