@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -112,34 +113,43 @@ func TestRegistryResponseHeaderTimeoutFlag(t *testing.T) {
 	assert.Equal(t, 15*time.Second, registryResponseHeaderTimeout)
 }
 
-func TestSetRegistryResponseHeaderTimeout(t *testing.T) {
-	// DefaultTransport is process-global, so this test must not run in parallel.
+func setupRegistryTimeoutTest(t *testing.T) {
+	t.Helper()
 	prev := regcreds.DefaultTransport.ResponseHeaderTimeout
+	prevOnce := setRegistryResponseHeaderTimeoutOnce
 	t.Cleanup(func() {
 		regcreds.DefaultTransport.ResponseHeaderTimeout = prev
+		setRegistryResponseHeaderTimeoutOnce = prevOnce
 		regcreds.DefaultTransport.CloseIdleConnections()
 	})
+	setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+}
+
+func TestSetRegistryResponseHeaderTimeout(t *testing.T) {
+	// DefaultTransport is process-global, so this test must not run in parallel.
+	setupRegistryTimeoutTest(t)
+
+	err := setRegistryResponseHeaderTimeout(-time.Second)
+	require.Error(t, err)
 
 	require.NoError(t, setRegistryResponseHeaderTimeout(15*time.Second))
 	assert.Equal(t, 15*time.Second, regcreds.DefaultTransport.ResponseHeaderTimeout)
 
-	err := setRegistryResponseHeaderTimeout(-time.Second)
-	require.Error(t, err)
+	// sync.Once must prevent subsequent callers from overwriting the value.
+	require.NoError(t, setRegistryResponseHeaderTimeout(30*time.Second))
 	assert.Equal(t, 15*time.Second, regcreds.DefaultTransport.ResponseHeaderTimeout)
 
+	setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
 	require.NoError(t, setRegistryResponseHeaderTimeout(0))
 	assert.Equal(t, time.Duration(0), regcreds.DefaultTransport.ResponseHeaderTimeout)
 }
 
 func TestRegistryResponseHeaderTimeoutAppliesToAllPaths(t *testing.T) {
 	// DefaultTransport is process-global, so this test must not run in parallel.
-	prev := regcreds.DefaultTransport.ResponseHeaderTimeout
-	t.Cleanup(func() {
-		regcreds.DefaultTransport.ResponseHeaderTimeout = prev
-		regcreds.DefaultTransport.CloseIdleConnections()
-	})
+	setupRegistryTimeoutTest(t)
 
 	t.Run("times out stalled response headers on both global client and DefaultOpts paths", func(t *testing.T) {
+		setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
 		require.NoError(t, setRegistryResponseHeaderTimeout(50*time.Millisecond))
 
 		unblock := make(chan struct{})
@@ -173,6 +183,7 @@ func TestRegistryResponseHeaderTimeoutAppliesToAllPaths(t *testing.T) {
 	})
 
 	t.Run("zero disables response header timeout", func(t *testing.T) {
+		setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
 		require.NoError(t, setRegistryResponseHeaderTimeout(0))
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

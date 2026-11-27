@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,11 +18,15 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+var setRegistryResponseHeaderTimeoutOnce = new(sync.Once)
+
 func setRegistryResponseHeaderTimeout(timeout time.Duration) error {
 	if timeout < 0 {
 		return fmt.Errorf("registryResponseHeaderTimeout must be non-negative, got %s", timeout)
 	}
-	regcreds.DefaultTransport.ResponseHeaderTimeout = timeout
+	setRegistryResponseHeaderTimeoutOnce.Do(func() {
+		regcreds.DefaultTransport.ResponseHeaderTimeout = timeout
+	})
 	return nil
 }
 
