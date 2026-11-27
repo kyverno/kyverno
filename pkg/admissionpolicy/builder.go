@@ -315,16 +315,11 @@ func BuildMutatingAdmissionPolicy(
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
-				return admissionregistrationv1alpha1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
-		Mutations:       mp.Spec.Mutations,
+		MatchConstraints: buildMatchResourcesAlpha(mp.Spec.MatchConstraints),
+		MatchConditions:  matchConditions,
+		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1alpha1.Mutation {
+			return *m.DeepCopy()
+		}),
 		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
 			return admissionregistrationv1alpha1.Variable(v)
 		}),
@@ -374,15 +369,8 @@ func BuildMutatingAdmissionPolicyV1(
 
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
-				return admissionregistrationv1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
+		MatchConstraints: mp.Spec.MatchConstraints.DeepCopy(),
+		MatchConditions:  matchConditions,
 		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
 			mut := admissionregistrationv1.Mutation{PatchType: admissionregistrationv1.PatchType(m.PatchType)}
 			if m.ApplyConfiguration != nil {
@@ -445,15 +433,8 @@ func BuildMutatingAdmissionPolicyBeta(
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
-				return admissionregistrationv1beta1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
+		MatchConstraints: ConvertMatchResourcesToBeta(mp.Spec.MatchConstraints.DeepCopy()),
+		MatchConditions:  matchConditions,
 		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
 			mut := admissionregistrationv1beta1.Mutation{
 				PatchType: admissionregistrationv1beta1.PatchType(m.PatchType),
@@ -494,6 +475,34 @@ func BuildMutatingAdmissionPolicyBindingBeta(
 		PolicyName: "mpol-" + mp.GetName(),
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
+func buildMatchResourcesAlpha(mc *admissionregistrationv1.MatchResources) *admissionregistrationv1alpha1.MatchResources {
+	if mc == nil {
+		return nil
+	}
+	cloned := mc.DeepCopy()
+	var matchPolicy *admissionregistrationv1alpha1.MatchPolicyType
+	if cloned.MatchPolicy != nil {
+		conv := admissionregistrationv1alpha1.MatchPolicyType(*cloned.MatchPolicy)
+		matchPolicy = &conv
+	}
+	return &admissionregistrationv1alpha1.MatchResources{
+		NamespaceSelector:    cloned.NamespaceSelector,
+		ObjectSelector:       cloned.ObjectSelector,
+		ResourceRules:        convertNamedRulesToAlpha(cloned.ResourceRules),
+		ExcludeResourceRules: convertNamedRulesToAlpha(cloned.ExcludeResourceRules),
+		MatchPolicy:          matchPolicy,
+	}
+}
+
+func convertNamedRulesToAlpha(rules []admissionregistrationv1.NamedRuleWithOperations) []admissionregistrationv1alpha1.NamedRuleWithOperations {
+	if len(rules) == 0 {
+		return nil
+	}
+	return slicesutils.Map(rules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
+		return admissionregistrationv1alpha1.NamedRuleWithOperations(rule)
+	})
 }
 
 // celStringListLiteral encodes values as a CEL list-of-strings literal.

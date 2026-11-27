@@ -21,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -427,4 +429,131 @@ func TestHandleMAPGeneration_CompensatingControlsPreserveMAP(t *testing.T) {
 	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-mutate-pods", metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.True(t, updated.Status.Generated)
+}
+
+func TestHandleMAPGeneration_PreservesMatchConstraintsScope(t *testing.T) {
+	ctx := context.Background()
+	cfg := mapGenEnabled()
+	cfg.PodControllers = &policiesv1beta1.PodControllersGenerationConfiguration{
+		Controllers: []string{},
+	}
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-scoped-map",
+			UID:  "uid-scoped-map",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: cfg,
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"env": "staging"},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "exempt",
+						Operator: metav1.LabelSelectorOpDoesNotExist,
+					}},
+				},
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+				ExcludeResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: []string{"excluded-pod"},
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+				MatchPolicy: ptr.To(admissionregistrationv1.Exact),
+			},
+		},
+	}
+
+	t.Run("v1beta1", func(t *testing.T) {
+		c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil)
+		require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+		generated, err := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NotNil(t, generated.Spec.MatchConstraints)
+		assert.Equal(t, mpol.Spec.MatchConstraints.NamespaceSelector, generated.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, mpol.Spec.MatchConstraints.ObjectSelector, generated.Spec.MatchConstraints.ObjectSelector)
+		assert.Equal(t, []admissionregistrationv1beta1.NamedRuleWithOperations{{
+			ResourceNames:      mpol.Spec.MatchConstraints.ResourceRules[0].ResourceNames,
+			RuleWithOperations: mpol.Spec.MatchConstraints.ResourceRules[0].RuleWithOperations,
+		}}, generated.Spec.MatchConstraints.ResourceRules)
+		assert.Equal(t, []admissionregistrationv1beta1.NamedRuleWithOperations{{
+			ResourceNames:      mpol.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames,
+			RuleWithOperations: mpol.Spec.MatchConstraints.ExcludeResourceRules[0].RuleWithOperations,
+		}}, generated.Spec.MatchConstraints.ExcludeResourceRules)
+		require.NotNil(t, generated.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1beta1.Exact, *generated.Spec.MatchConstraints.MatchPolicy)
+
+		updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updated.Status.Generated)
+	})
+
+	t.Run("v1", func(t *testing.T) {
+		c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil)
+		c.mapBetaLister = nil
+		c.mapbindingBetaLister = nil
+		c.mapV1Lister = admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+		c.mapbindingV1Lister = admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+		require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+		generated, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NotNil(t, generated.Spec.MatchConstraints)
+		assert.Equal(t, mpol.Spec.MatchConstraints.NamespaceSelector, generated.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, mpol.Spec.MatchConstraints.ObjectSelector, generated.Spec.MatchConstraints.ObjectSelector)
+		assert.Equal(t, mpol.Spec.MatchConstraints.ResourceRules, generated.Spec.MatchConstraints.ResourceRules)
+		assert.Equal(t, mpol.Spec.MatchConstraints.ExcludeResourceRules, generated.Spec.MatchConstraints.ExcludeResourceRules)
+		require.NotNil(t, generated.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1.Exact, *generated.Spec.MatchConstraints.MatchPolicy)
+
+		updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updated.Status.Generated)
+	})
+
+	t.Run("v1alpha1", func(t *testing.T) {
+		c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil)
+		c.mapBetaLister = nil
+		c.mapbindingBetaLister = nil
+		c.mapAlphaLister = admissionregistrationv1alpha1listers.NewMutatingAdmissionPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+		c.mapbindingAlphaLister = admissionregistrationv1alpha1listers.NewMutatingAdmissionPolicyBindingLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+		require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+		generated, err := kubeClient.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NotNil(t, generated.Spec.MatchConstraints)
+		assert.Equal(t, mpol.Spec.MatchConstraints.NamespaceSelector, generated.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, mpol.Spec.MatchConstraints.ObjectSelector, generated.Spec.MatchConstraints.ObjectSelector)
+		assert.Equal(t, []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+			ResourceNames:      mpol.Spec.MatchConstraints.ResourceRules[0].ResourceNames,
+			RuleWithOperations: mpol.Spec.MatchConstraints.ResourceRules[0].RuleWithOperations,
+		}}, generated.Spec.MatchConstraints.ResourceRules)
+		assert.Equal(t, []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+			ResourceNames:      mpol.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames,
+			RuleWithOperations: mpol.Spec.MatchConstraints.ExcludeResourceRules[0].RuleWithOperations,
+		}}, generated.Spec.MatchConstraints.ExcludeResourceRules)
+		require.NotNil(t, generated.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1alpha1.Exact, *generated.Spec.MatchConstraints.MatchPolicy)
+
+		updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-scoped-map", metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updated.Status.Generated)
+	})
 }

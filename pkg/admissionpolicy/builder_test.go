@@ -951,3 +951,204 @@ func TestBuildValidatingAdmissionPolicy_DoesNotWriteIntoSourceSliceCapacity(t *t
 	assert.Equal(t, admissionregistrationv1.Variable{}, vars[:cap(vars)][1],
 		"append must not write into the source policy's backing array")
 }
+
+func scopedMutatingPolicyFixture() *policiesv1beta1.MutatingPolicy {
+	exact := admissionregistrationv1.Exact
+	namespaced := admissionregistrationv1.NamespacedScope
+	return &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "scoped-mpol",
+			UID:  "uid-scoped-mpol",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"env": "staging"},
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "kubernetes.io/metadata.name",
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values:   []string{"kube-system", "kyverno"},
+					}},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"inject": "true"},
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "exempt",
+						Operator: metav1.LabelSelectorOpDoesNotExist,
+					}},
+				},
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: []string{"app-pod"},
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+							Scope:       &namespaced,
+						},
+					},
+				}},
+				ExcludeResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: []string{"excluded-pod"},
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods", "pods/ephemeralcontainers"},
+							Scope:       &namespaced,
+						},
+					},
+				}},
+				MatchPolicy: &exact,
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+				},
+			}},
+		},
+	}
+}
+
+func TestBuildMutatingAdmissionPolicy_PreservesMatchConstraintsAndDeepCopies(t *testing.T) {
+	t.Parallel()
+
+	t.Run("v1", func(t *testing.T) {
+		t.Parallel()
+		mp := scopedMutatingPolicyFixture()
+		snapshot := mp.DeepCopy()
+		mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-scoped-mpol"}}
+
+		BuildMutatingAdmissionPolicyV1(mapol, mp, nil)
+
+		require.NotNil(t, mapol.Spec.MatchConstraints)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.NamespaceSelector, mapol.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.ObjectSelector, mapol.Spec.MatchConstraints.ObjectSelector)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.ResourceRules, mapol.Spec.MatchConstraints.ResourceRules)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.ExcludeResourceRules, mapol.Spec.MatchConstraints.ExcludeResourceRules)
+		require.NotNil(t, mapol.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1.Exact, *mapol.Spec.MatchConstraints.MatchPolicy)
+
+		// Mutate generated object to prove zero aliasing with informer-cached MutatingPolicy.
+		mapol.Spec.MatchConstraints.NamespaceSelector.MatchLabels["env"] = "corrupted"
+		mapol.Spec.MatchConstraints.ObjectSelector.MatchLabels["inject"] = "false"
+		mapol.Spec.MatchConstraints.ResourceRules[0].ResourceNames[0] = "corrupted"
+		mapol.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames[0] = "corrupted"
+		*mapol.Spec.MatchConstraints.MatchPolicy = admissionregistrationv1.Equivalent
+		mapol.Spec.Mutations[0].ApplyConfiguration.Expression = "corrupted"
+		assert.Equal(t, snapshot, mp, "mutating generated v1 MAP must not alias source MutatingPolicy")
+	})
+
+	t.Run("v1beta1", func(t *testing.T) {
+		t.Parallel()
+		mp := scopedMutatingPolicyFixture()
+		snapshot := mp.DeepCopy()
+		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-scoped-mpol"}}
+
+		BuildMutatingAdmissionPolicyBeta(mapol, mp, nil)
+
+		require.NotNil(t, mapol.Spec.MatchConstraints)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.NamespaceSelector, mapol.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.ObjectSelector, mapol.Spec.MatchConstraints.ObjectSelector)
+		require.Len(t, mapol.Spec.MatchConstraints.ResourceRules, 1)
+		assert.Equal(t, admissionregistrationv1beta1.NamedRuleWithOperations{
+			ResourceNames:      snapshot.Spec.MatchConstraints.ResourceRules[0].ResourceNames,
+			RuleWithOperations: snapshot.Spec.MatchConstraints.ResourceRules[0].RuleWithOperations,
+		}, mapol.Spec.MatchConstraints.ResourceRules[0])
+		require.Len(t, mapol.Spec.MatchConstraints.ExcludeResourceRules, 1)
+		assert.Equal(t, admissionregistrationv1beta1.NamedRuleWithOperations{
+			ResourceNames:      snapshot.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames,
+			RuleWithOperations: snapshot.Spec.MatchConstraints.ExcludeResourceRules[0].RuleWithOperations,
+		}, mapol.Spec.MatchConstraints.ExcludeResourceRules[0])
+		require.NotNil(t, mapol.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1beta1.Exact, *mapol.Spec.MatchConstraints.MatchPolicy)
+
+		// Mutate generated object to prove zero aliasing with informer-cached MutatingPolicy.
+		mapol.Spec.MatchConstraints.NamespaceSelector.MatchLabels["env"] = "corrupted"
+		mapol.Spec.MatchConstraints.ObjectSelector.MatchLabels["inject"] = "false"
+		mapol.Spec.MatchConstraints.ResourceRules[0].ResourceNames[0] = "corrupted"
+		mapol.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames[0] = "corrupted"
+		*mapol.Spec.MatchConstraints.MatchPolicy = admissionregistrationv1beta1.Equivalent
+		mapol.Spec.Mutations[0].ApplyConfiguration.Expression = "corrupted"
+		assert.Equal(t, snapshot, mp, "mutating generated v1beta1 MAP must not alias source MutatingPolicy")
+	})
+
+	t.Run("v1alpha1", func(t *testing.T) {
+		t.Parallel()
+		mp := scopedMutatingPolicyFixture()
+		snapshot := mp.DeepCopy()
+		mapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-scoped-mpol"}}
+
+		BuildMutatingAdmissionPolicy(mapol, mp, nil)
+
+		require.NotNil(t, mapol.Spec.MatchConstraints)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.NamespaceSelector, mapol.Spec.MatchConstraints.NamespaceSelector)
+		assert.Equal(t, snapshot.Spec.MatchConstraints.ObjectSelector, mapol.Spec.MatchConstraints.ObjectSelector)
+		require.Len(t, mapol.Spec.MatchConstraints.ResourceRules, 1)
+		assert.Equal(t, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      snapshot.Spec.MatchConstraints.ResourceRules[0].ResourceNames,
+			RuleWithOperations: snapshot.Spec.MatchConstraints.ResourceRules[0].RuleWithOperations,
+		}, mapol.Spec.MatchConstraints.ResourceRules[0])
+		require.Len(t, mapol.Spec.MatchConstraints.ExcludeResourceRules, 1)
+		assert.Equal(t, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      snapshot.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames,
+			RuleWithOperations: snapshot.Spec.MatchConstraints.ExcludeResourceRules[0].RuleWithOperations,
+		}, mapol.Spec.MatchConstraints.ExcludeResourceRules[0])
+		require.NotNil(t, mapol.Spec.MatchConstraints.MatchPolicy)
+		assert.Equal(t, admissionregistrationv1alpha1.Exact, *mapol.Spec.MatchConstraints.MatchPolicy)
+
+		// Mutate generated object to prove zero aliasing with informer-cached MutatingPolicy.
+		mapol.Spec.MatchConstraints.NamespaceSelector.MatchLabels["env"] = "corrupted"
+		mapol.Spec.MatchConstraints.ObjectSelector.MatchLabels["inject"] = "false"
+		mapol.Spec.MatchConstraints.ResourceRules[0].ResourceNames[0] = "corrupted"
+		mapol.Spec.MatchConstraints.ExcludeResourceRules[0].ResourceNames[0] = "corrupted"
+		*mapol.Spec.MatchConstraints.MatchPolicy = admissionregistrationv1alpha1.Equivalent
+		mapol.Spec.Mutations[0].ApplyConfiguration.Expression = "corrupted"
+		assert.Equal(t, snapshot, mp, "mutating generated v1alpha1 MAP must not alias source MutatingPolicy")
+	})
+}
+
+func TestBuildMutatingAdmissionPolicy_NilMatchConstraints(t *testing.T) {
+	t.Parallel()
+
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "nil-mc", UID: "uid-nil-mc"},
+	}
+
+	v1Mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-mc"}}
+	require.NotPanics(t, func() { BuildMutatingAdmissionPolicyV1(v1Mapol, mp, nil) })
+	assert.Nil(t, v1Mapol.Spec.MatchConstraints)
+
+	betaMapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-mc"}}
+	require.NotPanics(t, func() { BuildMutatingAdmissionPolicyBeta(betaMapol, mp, nil) })
+	assert.Nil(t, betaMapol.Spec.MatchConstraints)
+
+	alphaMapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-mc"}}
+	require.NotPanics(t, func() { BuildMutatingAdmissionPolicy(alphaMapol, mp, nil) })
+	assert.Nil(t, alphaMapol.Spec.MatchConstraints)
+}
+
+func TestBuildMutatingAdmissionPolicy_PreservesNilExcludeResourceRules(t *testing.T) {
+	t.Parallel()
+
+	mp := scopedMutatingPolicyFixture()
+	mp.Spec.MatchConstraints.ExcludeResourceRules = nil
+
+	v1Mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-excl"}}
+	BuildMutatingAdmissionPolicyV1(v1Mapol, mp, nil)
+	require.NotNil(t, v1Mapol.Spec.MatchConstraints)
+	assert.Nil(t, v1Mapol.Spec.MatchConstraints.ExcludeResourceRules)
+
+	betaMapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-excl"}}
+	BuildMutatingAdmissionPolicyBeta(betaMapol, mp, nil)
+	require.NotNil(t, betaMapol.Spec.MatchConstraints)
+	assert.Nil(t, betaMapol.Spec.MatchConstraints.ExcludeResourceRules)
+
+	alphaMapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-nil-excl"}}
+	BuildMutatingAdmissionPolicy(alphaMapol, mp, nil)
+	require.NotNil(t, alphaMapol.Spec.MatchConstraints)
+	assert.Nil(t, alphaMapol.Spec.MatchConstraints.ExcludeResourceRules)
+}
