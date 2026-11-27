@@ -7,7 +7,8 @@
 //
 //	go test -tags="integration registry" ./test/integration/ivpol/...
 //
-// Everything that can be asserted without a registry lives in handler_test.go and runs by default.
+// Everything that can be asserted without an external registry lives in handler_test.go and
+// keyless_test.go and runs by default.
 
 package ivpol_test
 
@@ -16,12 +17,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	ivpol "github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
-	"github.com/kyverno/kyverno/test/integration/framework"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,8 +27,8 @@ import (
 
 const (
 	// Images published by the kyverno test image repositories. These are real images the
-	// registry-tagged tests pull and verify; the hermetic tests use an unresolvable reference instead
-	// (see unverifiableImage in handler_test.go).
+	// registry-tagged tests pull and verify from ghcr.io; handler_test.go uses an unresolvable
+	// reference (unverifiableImage), and keyless_test.go uses an in-process loopback registry.
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
@@ -125,23 +122,6 @@ func cosignKeylessPolicy(name, issuer, subject string) *policiesv1beta1.ImageVal
 		},
 	}}
 	return policy
-}
-
-// validatePod runs the validating webhook route for a pod carrying the given image and returns
-// whether the request was admitted, any warnings, and the denial message. Verification happens
-// entirely in this phase (issue #16336): a signed image is admitted, an unsigned or untrusted one is
-// denied.
-func validatePod(t *testing.T, policyName, podName, namespace, image string) (bool, []string, string) {
-	t.Helper()
-	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
-	raw := podRawWithImage(t, podName, namespace, image)
-	ctx := framework.ContextWithPolicies(context.Background(), policyName)
-	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
-	var message string
-	if resp.Result != nil {
-		message = resp.Result.Message
-	}
-	return resp.Allowed, resp.Warnings, message
 }
 
 // TestValidate_CosignSignedImage_Admits is the end to end signature check: a real signed image is

@@ -6,9 +6,11 @@ workflow.
 
 ## Two tiers, two build tags
 
-- **`handler_test.go`** is `//go:build integration`. It owns `TestMain`, `newIvpol`/`ivpolSpec` and the pod helpers,
-  and it never needs network: tests that must reach verification point a pod at `unverifiableImage`
-  (`registry.invalid/...`). It runs on every PR in the `Framework tests (ivpol)` leg of `check-framework.yaml`.
+- **`handler_test.go`** and **`keyless_test.go`** are `//go:build integration`. `handler_test.go` owns `TestMain`,
+  `newIvpol`/`ivpolSpec` and the pod helpers, pointing unresolvable-image tests at `unverifiableImage`
+  (`registry.invalid/...`); `keyless_test.go` verifies real keyless signatures hermetically against an in-process
+  loopback OCI registry and virtual Sigstore root (`test/integration/framework/imagetest`) with no external network.
+  Both run on every PR in the `Framework tests (ivpol)` leg of `check-framework.yaml`.
 - **`registry_test.go`** is `//go:build integration && registry`. It pulls real images from ghcr.io (and Rekor for
   keyless) and runs real cosign and notary verification. It runs only in `check-framework-registry.yaml`: nightly,
   on manual dispatch, and on PRs that touch this directory, `test/integration/framework/` or the workflow.
@@ -36,7 +38,7 @@ contacting any registry. Keep both properties if you touch the step script.
 
 `verifyDigest` defaults to true, so the validating route denies an image passed by tag with
 `... does not have a digest` before any signature check runs. In a cluster the mutating route pins tags first;
-these tests do the same with `pinnedByDigest`. Passing a tag to a validate test makes a deny test pass for the wrong
+these tests do the same with `pinnedByDigest` (or `reg.PinnedRef` for in-process registries). Passing a tag to a validate test makes a deny test pass for the wrong
 reason and an admit test fail.
 
 ## Deny tests assert why they denied
