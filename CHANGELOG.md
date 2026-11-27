@@ -13,6 +13,14 @@
 
 - Changed `--exceptionNamespace` so that leaving it unset now accepts no `PolicyException` resources, instead of behaving like `*`. Set it to a concrete namespace to keep exceptions working; `*` also works, but under `*` a namespaced policy only accepts exceptions filed in its own namespace, not from an arbitrary shared namespace.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:c39841fd3b4247898eee419d9abbd4d71f2e8952ab6b1c9c46cf2a65fc72e1bd -->
+
+- feat(trace): add `trace.kyverno.io/v1alpha1` JSON for `kyverno apply --explain --output-format json` and admission decision traces; admission log `scope` changes from a string to an object and gains `apiVersion`, `kind`, `policy`, and `resource` (#18716)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
