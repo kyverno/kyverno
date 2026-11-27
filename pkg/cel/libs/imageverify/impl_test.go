@@ -150,6 +150,91 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	assert.Equal(t, out.Value(), int64(1))
 }
 
+func Test_impl_rejects_unresolved_inline_subject_expression(t *testing.T) {
+	attestors := []v1beta1.Attestor{{
+		Name: "keyless",
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{{
+					Issuer:            "https://token.actions.githubusercontent.com",
+					SubjectExpression: `"^https://github.com/allowed/repo/.*$"`,
+				}},
+			},
+		},
+	}}
+	const (
+		taggedImage = "example.com/image:latest"
+		digestImage = "example.com/image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		attestation = "sbom"
+		predicate   = "https://example.com/sbom"
+	)
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	require.NoError(t, err)
+	stored, err := ivCache.Set(digestImage, attestors, nil, nil)
+	require.NoError(t, err)
+	require.True(t, stored)
+	attest := v1beta1.Attestation{Name: attestation, InToto: &v1beta1.InToto{Type: predicate}}
+	stored, err = ivCache.Set(
+		digestImage,
+		attestors,
+		&attest,
+		map[string][]byte{predicate: []byte(`{}`)},
+	)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	f := &IvFuncs{
+		Adapter: types.DefaultTypeAdapter,
+		logger:  logr.Discard(),
+		policy:  &v1beta1.ImageValidatingPolicy{},
+		ivCache: ivCache,
+		attestationList: map[string]v1beta1.Attestation{
+			attestation: attest,
+		},
+	}
+
+	tests := map[string]func() ref.Val{
+		"image signature without cache": func() ref.Val {
+			return f.verify_image_signature_string_stringarray(
+				f.NativeToValue(taggedImage),
+				f.NativeToValue(attestors),
+			)
+		},
+		"image signature with warm cache": func() ref.Val {
+			return f.verify_image_signature_string_stringarray(
+				f.NativeToValue(digestImage),
+				f.NativeToValue(attestors),
+			)
+		},
+		"attestation signature without cache": func() ref.Val {
+			return f.verify_image_attestations_string_string_stringarray(
+				f.NativeToValue(taggedImage),
+				f.NativeToValue(attestation),
+				f.NativeToValue(attestors),
+			)
+		},
+		"attestation signature with warm cache": func() ref.Val {
+			return f.verify_image_attestations_string_string_stringarray(
+				f.NativeToValue(digestImage),
+				f.NativeToValue(attestation),
+				f.NativeToValue(attestors),
+			)
+		},
+	}
+	for name, call := range tests {
+		t.Run(name, func(t *testing.T) {
+			out := call()
+			err, ok := out.Value().(error)
+			require.True(t, ok, "expected an error, got: %v", out.Value())
+			assert.Contains(t, err.Error(), "subjectExpression")
+			assert.Contains(t, err.Error(), "must be declared in spec.attestors")
+		})
+	}
+}
+
 func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 	attestors := []v1beta1.Attestor{
 		{

@@ -20,6 +20,9 @@ type CompiledAttestor struct {
 	notaryCertProg    cel.Program
 	notaryTSACertProg cel.Program
 	trustedRootProg   cel.Program
+	// subjectProgs holds one program per keyless identity that declares a
+	// SubjectExpression, indexed like Cosign.Keyless.Identities.
+	subjectProgs map[int]cel.Program
 }
 
 func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
@@ -76,6 +79,31 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, err.Error()))
 				}
 				compiledAtt.trustedRootProg = prg
+			}
+			if att.Cosign.Keyless != nil {
+				identitiesPath := path.Child("cosign", "keyless", "identities")
+				for j, id := range att.Cosign.Keyless.Identities {
+					if id.SubjectExpression == "" {
+						continue
+					}
+					// SubjectExpression resolves to SubjectRegExp, so accepting
+					// both would silently drop one of them.
+					if id.SubjectRegExp != "" {
+						return nil, append(allErrs, field.Invalid(identitiesPath.Index(j), id, "subjectExpression and subjectRegExp are mutually exclusive"))
+					}
+					ast, iss := env.Compile(id.SubjectExpression)
+					if iss.Err() != nil {
+						return nil, append(allErrs, field.Invalid(identitiesPath.Index(j), id, iss.Err().Error()))
+					}
+					prg, err := celcompiler.NewProgram(env, ast)
+					if err != nil {
+						return nil, append(allErrs, field.Invalid(identitiesPath.Index(j), id, err.Error()))
+					}
+					if compiledAtt.subjectProgs == nil {
+						compiledAtt.subjectProgs = map[int]cel.Program{}
+					}
+					compiledAtt.subjectProgs[j] = prg
+				}
 			}
 		} else if att.IsNotary() {
 			if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
@@ -154,6 +182,26 @@ func (c *CompiledAttestor) Evaluate(ctx context.Context, data any) (v1beta1.Atte
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert trustedRoot in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		value.Cosign.TrustedRoot.Value = result
+	}
+
+	// SubjectExpression resolves to the subject regexp matched against the
+	// certificate SAN URI, so the identity carries it as SubjectRegExp for the
+	// verifier. It is mutually exclusive with SubjectRegExp by API contract.
+	for i, prg := range c.subjectProgs {
+		result, err := evalProgramString(ctx, c.Key, prg, data)
+		if err != nil {
+			return v1beta1.Attestor{}, fmt.Errorf("failed to convert subject expression in compiled attestor: %s, error: %w", c.Key, err)
+		}
+		// An empty SubjectRegExp means "no subject constraint" to cosign, which
+		// would accept any subject on the issuer. Fail closed instead.
+		if result == "" {
+			return v1beta1.Attestor{}, fmt.Errorf("subject expression in compiled attestor: %s evaluated to an empty string", c.Key)
+		}
+		value.Cosign.Keyless.Identities[i].SubjectRegExp = result
+		// Keep the evaluated value distinguishable from an inline attestor
+		// that still needs compilation. Runtime verification rejects any
+		// remaining SubjectExpression.
+		value.Cosign.Keyless.Identities[i].SubjectExpression = ""
 	}
 
 	return *value, nil
