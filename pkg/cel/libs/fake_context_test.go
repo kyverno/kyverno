@@ -103,13 +103,56 @@ func TestFakeContextProvider_GetGlobalReference_GctxStore(t *testing.T) {
 	cp := NewFakeContextProvider()
 	cp.SetGlobalContextStore(s)
 
-	raw, err := cp.GetGlobalReference("cm-cache", "")
-	require.NoError(t, err)
-	require.Len(t, raw, 1)
+	tests := []struct {
+		name       string
+		entry      string
+		projection string
+		wantLen    int
+		wantVal    any
+		wantErr    error
+	}{
+		{
+			name:       "whole entry returns raw objects",
+			entry:      "cm-cache",
+			projection: "",
+			wantLen:    1,
+		},
+		{
+			name:       "known projection returns evaluated value",
+			entry:      "cm-cache",
+			projection: "count",
+			wantVal:    int64(1),
+		},
+		{
+			name:       "unknown projection returns store error",
+			entry:      "cm-cache",
+			projection: "missing-proj",
+			wantErr:    assert.AnError,
+		},
+		{
+			name:       "absent entry returns nil without error",
+			entry:      "missing-entry",
+			projection: "count",
+			wantVal:    nil,
+		},
+	}
 
-	proj, err := cp.GetGlobalReference("cm-cache", "count")
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), proj)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := cp.GetGlobalReference(tt.entry, tt.projection)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantLen > 0 {
+				require.Len(t, got, tt.wantLen)
+				return
+			}
+			assert.Equal(t, tt.wantVal, got)
+		})
+	}
 
 	// Explicit mock entry takes precedence over gctxStore.
 	cp.AddGlobalReference("cm-cache", map[string]any{"count": int64(9)})

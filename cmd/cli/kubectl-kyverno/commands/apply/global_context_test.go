@@ -406,21 +406,8 @@ spec:
     expression: "globalContext.get('config-cache', 'firstTier') == object.metadata.labels.tier"
 `), 0o600))
 
-	t.Run("ValidatingPolicy resolves direct entry and projections offline", func(t *testing.T) {
-		cfg := &ApplyCommandConfig{
-			PolicyPaths:   []string{vpolPath},
-			ResourcePaths: []string{gcePath, cmPath, podPath},
-		}
-		rc, _, _, _, err := cfg.applyCommandHelper(context.Background(), io.Discard)
-		require.NoError(t, err)
-		assert.Equal(t, 1, rc.Pass)
-		assert.Zero(t, rc.Fail)
-		assert.Zero(t, rc.Error)
-	})
-
-	t.Run("ValidatingPolicy fails when resource mismatches GlobalContextEntry projection", func(t *testing.T) {
-		badPodPath := filepath.Join(dir, "bad-pod.yaml")
-		require.NoError(t, os.WriteFile(badPodPath, []byte(`
+	badPodPath := filepath.Join(dir, "bad-pod.yaml")
+	require.NoError(t, os.WriteFile(badPodPath, []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -433,26 +420,69 @@ spec:
   - name: nginx
     image: nginx:1.25
 `), 0o600))
-		cfg := &ApplyCommandConfig{
-			PolicyPaths:   []string{vpolPath},
-			ResourcePaths: []string{gcePath, cmPath, badPodPath},
-		}
-		rc, _, _, _, err := cfg.applyCommandHelper(context.Background(), io.Discard)
-		require.NoError(t, err)
-		assert.Zero(t, rc.Pass)
-		assert.Equal(t, 1, rc.Fail)
-		assert.Zero(t, rc.Error)
-	})
 
-	t.Run("DeletingPolicy resolves GlobalContextEntry projection offline", func(t *testing.T) {
-		cfg := &ApplyCommandConfig{
-			PolicyPaths:   []string{dpolPath},
-			ResourcePaths: []string{gcePath, cmPath, podPath},
-		}
-		rc, _, _, _, err := cfg.applyCommandHelper(context.Background(), io.Discard)
-		require.NoError(t, err)
-		assert.Equal(t, 1, rc.Pass)
-		assert.Zero(t, rc.Fail)
-		assert.Zero(t, rc.Error)
-	})
+	emptyCountGCEPath := filepath.Join(dir, "empty-count-gce.yaml")
+	require.NoError(t, os.WriteFile(emptyCountGCEPath, []byte(`
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: config-cache
+spec:
+  kubernetesResource:
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+  - name: cmCount
+    expression: "object.size()"
+`), 0o600))
+
+	tests := []struct {
+		name          string
+		policyPaths   []string
+		resourcePaths []string
+		wantPass      int
+		wantFail      int
+	}{
+		{
+			name:          "ValidatingPolicy resolves direct entry and projections offline",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{gcePath, cmPath, podPath},
+			wantPass:      1,
+		},
+		{
+			name:          "ValidatingPolicy fails when resource mismatches GlobalContextEntry projection",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{gcePath, cmPath, badPodPath},
+			wantFail:      1,
+		},
+		{
+			name:          "DeletingPolicy resolves GlobalContextEntry projection offline",
+			policyPaths:   []string{dpolPath},
+			resourcePaths: []string{gcePath, cmPath, podPath},
+			wantPass:      1,
+		},
+		{
+			name:          "GlobalContextEntry-only input resolves empty backing collection without error",
+			policyPaths:   []string{vpolPath},
+			resourcePaths: []string{emptyCountGCEPath},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ApplyCommandConfig{
+				PolicyPaths:   tt.policyPaths,
+				ResourcePaths: tt.resourcePaths,
+			}
+			rc, _, responses, _, err := cfg.applyCommandHelper(context.Background(), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+			assert.Zero(t, rc.Error)
+			if tt.wantPass == 0 && tt.wantFail == 0 {
+				assert.Empty(t, responses)
+			}
+		})
+	}
 }

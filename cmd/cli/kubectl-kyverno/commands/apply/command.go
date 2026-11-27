@@ -380,7 +380,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	c.recordGlobalContextEntryDeprecationWarnings(out, gctxEntries)
 
 	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)+len(gctxEntries)) > 0 {
-		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
+		var gceGVRs []schema.GroupVersionResource
+		for _, gce := range gctxEntries {
+			if kr := gce.Spec.KubernetesResource; kr != nil {
+				gceGVRs = append(gceGVRs, schema.GroupVersionResource{
+					Group:    kr.Group,
+					Version:  kr.Version,
+					Resource: kr.Resource,
+				})
+			}
+		}
+		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources, gceGVRs...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
 		}
@@ -1466,7 +1476,7 @@ func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.U
 	return resource.FlattenResources(resources)
 }
 
-func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
+func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured, extraGVRs ...schema.GroupVersionResource) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
@@ -1498,6 +1508,13 @@ func createFakeClientFromResources(resources, targetResources, parameterResource
 			seen[gvr] = true
 			gvrToListKind[gvr] = gvk.Kind + "List"
 			gvrToGVK[gvr] = gvk
+			discoveryGVRs = append(discoveryGVRs, gvr)
+		}
+	}
+	for _, gvr := range extraGVRs {
+		if !seen[gvr] {
+			seen[gvr] = true
+			gvrToListKind[gvr] = gvr.Resource + "List"
 			discoveryGVRs = append(discoveryGVRs, gvr)
 		}
 	}
