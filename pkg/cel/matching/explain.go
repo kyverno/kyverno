@@ -33,11 +33,11 @@ func Explain(constraints *admissionregistrationv1.MatchResources, attr admission
 	if ok, err := (&object.Matcher{}).MatchObjectSelector(criteria, attr); err == nil && !ok {
 		return "the object's labels do not satisfy the policy's objectSelector"
 	}
-	if excluded, err := matchesResourceRules(constraints.ExcludeResourceRules, attr); err == nil && excluded {
+	if excluded, err := matchesResourceRules(constraints.ExcludeResourceRules, attr, false); err == nil && excluded {
 		return fmt.Sprintf("%s is excluded by the policy's excludeResourceRules", describeRequest(attr))
 	}
 	if len(constraints.ResourceRules) > 0 {
-		if ok, err := matchesResourceRules(constraints.ResourceRules, attr); err == nil && !ok {
+		if ok, err := matchesResourceRules(constraints.ResourceRules, attr, true); err == nil && !ok {
 			return fmt.Sprintf("%s is not covered by the policy's resourceRules (%s)", describeRequest(attr), describeRules(constraints.ResourceRules))
 		}
 	}
