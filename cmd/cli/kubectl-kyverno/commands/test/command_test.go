@@ -2466,3 +2466,71 @@ func TestRunTest_WarningColor(t *testing.T) {
 	assert.Contains(t, outNoColor, "warning: found duplicated resource")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }
+
+func TestRunTest_DeletingPolicyHTTPMock(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test", "deleting-policy-http-mock")
+	require.DirExists(t, testDir)
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "runTest deleting-policy-http-mock failed: %s", out.String())
+
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "delete-unhealthy-configs" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+				for _, rule := range r.PolicyResponse.Rules {
+					assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected rule to pass")
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	require.True(t, found, "expected engine response for policy delete-unhealthy-configs")
+}
+
+func TestRunTest_DeletingPolicyHTTPMockNegative(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test", "deleting-policy-http-mock-negative")
+	require.DirExists(t, testDir)
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "runTest deleting-policy-http-mock failed: %s", out.String())
+
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "delete-unhealthy-configs" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+				for _, rule := range r.PolicyResponse.Rules {
+					assert.Equal(t, engineapi.RuleStatusFail, rule.Status(), "expected rule to fail")
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	require.True(t, found, "expected engine response for policy delete-unhealthy-configs")
+}

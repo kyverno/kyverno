@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: delete-unhealthy-configs
+spec:
+  schedule: "*/5 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+  conditions:
+    - name: check-external-status
+      expression: http.Get("https://api.example.invalid/status").body.status == "unhealthy"
