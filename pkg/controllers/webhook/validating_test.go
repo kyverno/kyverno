@@ -1705,3 +1705,110 @@ func TestBuildWebhookRules_FineGrained_SharedCollisionTracking(t *testing.T) {
 		assert.Empty(t, validation.IsQualifiedName(mc.Name))
 	}
 }
+
+func TestBuildWebhookRules_ResourceRuleWithoutOperations(t *testing.T) {
+	podRuleWithoutOperations := func() *admissionregistrationv1.MatchResources {
+		return &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				},
+			},
+		}
+	}
+	tests := []struct {
+		name        string
+		webhookName string
+		path        string
+		policy      engineapi.GenericPolicy
+	}{
+		{
+			name:        "ValidatingPolicy",
+			webhookName: config.ValidatingPolicyWebhookName,
+			path:        "/vpol",
+			policy: engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "vpol-no-operations"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					FailurePolicy:    ptr.To(admissionregistrationv1.Fail),
+					MatchConstraints: podRuleWithoutOperations(),
+				},
+			}),
+		},
+		{
+			name:        "Fine-grained ValidatingPolicy",
+			webhookName: config.ValidatingPolicyWebhookName,
+			path:        "/vpol",
+			policy: engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "vpol-no-operations"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					FailurePolicy:    ptr.To(admissionregistrationv1.Fail),
+					MatchConstraints: podRuleWithoutOperations(),
+					WebhookConfiguration: &policiesv1beta1.WebhookConfiguration{
+						TimeoutSeconds: ptr.To[int32](10),
+					},
+				},
+			}),
+		},
+		{
+			name:        "ImageValidatingPolicy",
+			webhookName: config.ImageValidatingPolicyValidateWebhookName,
+			path:        "/ivpol/validate",
+			policy: engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "ivpol-no-operations"},
+				Spec: policiesv1beta1.ImageValidatingPolicySpec{
+					FailurePolicy:    ptr.To(admissionregistrationv1.Fail),
+					MatchConstraints: podRuleWithoutOperations(),
+				},
+			}),
+		},
+		{
+			name:        "Fine-grained ImageValidatingPolicy",
+			webhookName: config.ImageValidatingPolicyValidateWebhookName,
+			path:        "/ivpol/validate",
+			policy: engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "ivpol-no-operations"},
+				Spec: policiesv1beta1.ImageValidatingPolicySpec{
+					FailurePolicy:    ptr.To(admissionregistrationv1.Fail),
+					MatchConstraints: podRuleWithoutOperations(),
+					WebhookConfiguration: &policiesv1beta1.WebhookConfiguration{
+						TimeoutSeconds: ptr.To[int32](10),
+					},
+				},
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var webhooks []admissionregistrationv1.ValidatingWebhook
+			require.NotPanics(t, func() {
+				webhooks = buildWebhookRules(
+					config.NewDefaultConfiguration(false),
+					"",
+					tt.webhookName,
+					tt.path,
+					0,
+					nil,
+					[]engineapi.GenericPolicy{tt.policy},
+					NewExpressionCache(),
+				)
+			})
+			// Autogen is skipped, so only the policy's own pod rule is registered.
+			require.Len(t, webhooks, 1)
+			assert.Equal(t, []admissionregistrationv1.RuleWithOperations{
+				{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}, webhooks[0].Rules)
+		})
+	}
+}

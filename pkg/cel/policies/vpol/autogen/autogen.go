@@ -57,7 +57,12 @@ func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, confi
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
+		match := autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
+		if match == nil {
+			// No operations means no generated rule can match, so skip this config.
+			continue
+		}
+		spec.MatchConstraints = match
 		replacements := autogen.ReplacementsMap[config]
 		if len(replacements) > 0 {
 			for i := range spec.MatchConditions {
