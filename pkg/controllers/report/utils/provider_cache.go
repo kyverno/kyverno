@@ -71,8 +71,9 @@ type cacheSlot[T any] struct {
 // without holding lock during compilation so unrelated keys, Evict, and Clear
 // never block on CEL compilation. Lock order is strictly slot.mu -> lock.
 type providerStore[T any] struct {
-	lock  sync.RWMutex
-	slots map[string]*cacheSlot[T]
+	lock             sync.RWMutex
+	slots            map[string]*cacheSlot[T]
+	onBeforeSlotLock func()
 }
 
 func newProviderStore[T any]() *providerStore[T] {
@@ -117,6 +118,9 @@ func (s *providerStore[T]) fillSlot(
 	excKey string,
 	compile func() (T, error),
 ) (T, error) {
+	if s.onBeforeSlotLock != nil {
+		s.onBeforeSlotLock()
+	}
 	slot.mu.Lock()
 
 	// Confirm the slot is still active in the map (Evict/Clear may have detached it

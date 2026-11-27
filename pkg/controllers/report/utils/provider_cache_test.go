@@ -603,8 +603,16 @@ func TestProviderCache_DetachedWaiterDoesNotOverwriteNewerEntry(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cache := NewProviderCache()
 			var compileCount atomic.Int32
+			var slotLockAttempts atomic.Int32
 			compile1Started := make(chan struct{})
+			waiterSelectedSlot := make(chan struct{})
 			allowCompile1Finish := make(chan struct{})
+
+			cache.(*providerCache).vpol.onBeforeSlotLock = func() {
+				if slotLockAttempts.Add(1) == 2 {
+					close(waiterSelectedSlot)
+				}
+			}
 
 			HookVpolCompiled = func() {
 				if compileCount.Add(1) == 1 {
@@ -630,7 +638,7 @@ func TestProviderCache_DetachedWaiterDoesNotOverwriteNewerEntry(t *testing.T) {
 
 			<-compile1Started
 
-			// Goroutine 2 sees slot1 in the map and blocks waiting on slot1.mu.
+			// Goroutine 2 sees slot1 in the map and signals before waiting on slot1.mu.
 			go func() {
 				defer wg.Done()
 				p, err := cache.GetValidatingPolicyProvider(policyV1, nil, celengine.ExceptionScopeAll)
@@ -638,8 +646,7 @@ func TestProviderCache_DetachedWaiterDoesNotOverwriteNewerEntry(t *testing.T) {
 				assert.NotNil(t, p)
 			}()
 
-			// Give Goroutine 2 a moment to enter slot1.mu.Lock() before detaching slot1.
-			time.Sleep(20 * time.Millisecond)
+			<-waiterSelectedSlot
 			tc.detach(cache, policyV1)
 
 			// Populate a replacement slot with v2 while Goroutine 1 and 2 are still on slot1.
