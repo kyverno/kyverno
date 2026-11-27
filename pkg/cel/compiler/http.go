@@ -125,7 +125,10 @@ var (
 
 func getParseEnv() *cel.Env {
 	parseEnvOnce.Do(func() {
-		env, err := cel.NewEnv()
+		// policies compile with optional syntax (.? and [?...]) enabled, so the parse
+		// env needs it too; otherwise such expressions fail to parse here and are
+		// skipped as if they did not reference the identifier
+		env, err := cel.NewEnv(cel.OptionalTypes())
 		if err != nil {
 			return
 		}
