@@ -10,16 +10,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
-	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -43,6 +40,7 @@ type scanner struct {
 	mapper         meta.RESTMapper
 	typeConverter  patch.TypeConverterManager
 	exceptionScope celengine.ExceptionScope
+	providerCache  ProviderCache
 }
 
 type ScanResult struct {
@@ -74,6 +72,33 @@ func NewScanner(
 	typeConverter patch.TypeConverterManager,
 	exceptionScope celengine.ExceptionScope,
 ) Scanner {
+	return NewScannerWithCache(
+		logger,
+		config,
+		client,
+		gctxStore,
+		mapper,
+		secretLister,
+		typeConverter,
+		exceptionScope,
+		NewProviderCache(),
+	)
+}
+
+func NewScannerWithCache(
+	logger logr.Logger,
+	config config.Configuration,
+	client dclient.Interface,
+	gctxStore gctxstore.Store,
+	mapper meta.RESTMapper,
+	secretLister corev1listers.SecretLister,
+	typeConverter patch.TypeConverterManager,
+	exceptionScope celengine.ExceptionScope,
+	cache ProviderCache,
+) Scanner {
+	if cache == nil {
+		cache = NewProviderCache()
+	}
 	return &scanner{
 		logger:         logger,
 		config:         config,
@@ -83,6 +108,7 @@ func NewScanner(
 		secretLister:   secretLister,
 		typeConverter:  typeConverter,
 		exceptionScope: exceptionScope,
+		providerCache:  cache,
 	}
 }
 
@@ -129,8 +155,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicyLike(); pol != nil {
-			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1beta1.ValidatingPolicyLike{pol}, exceptions, s.exceptionScope)
+			provider, err := s.providerCache.GetValidatingPolicyProvider(pol, exceptions, s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -174,8 +199,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range mpols {
 		if pol := policy.AsMutatingPolicyLike(); pol != nil {
-			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions, libs.GetLibsCtx(), s.exceptionScope)
+			provider, err := s.providerCache.GetMutatingPolicyProvider(pol, exceptions, libs.GetLibsCtx(), s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -230,7 +254,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
-			provider, err := ivpolengine.NewProvider(iveval.NewCompiler(s.secretLister), []policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions, s.exceptionScope)
+			provider, err := s.providerCache.GetImageValidatingPolicyProvider(pol, exceptions, s.secretLister, s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
