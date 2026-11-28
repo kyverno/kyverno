@@ -243,7 +243,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	for _, target := range targets {
 		object := &target.object
 		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), target.subresource, object.GetNamespace(), object.GetName()) {
-			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
+			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "policy", ur.Spec.GetPolicyKey())
 			continue
 		}
 		evaluate := func(object *unstructured.Unstructured) (mpolengine.EngineResponse, error) {
@@ -305,7 +305,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			// generated so the evaluation result remains observable.
 			if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
 				if err := p.audit(object, &response); err != nil {
-					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+					logger.Error(err, "failed to create reports for mpol", "policy", ur.Spec.GetPolicyKey())
 				}
 				continue
 			}
@@ -333,7 +333,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 				if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
 					if err := p.audit(object, &response); err != nil {
-						logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+						logger.Error(err, "failed to create reports for mpol", "policy", ur.Spec.GetPolicyKey())
 					}
 					continue
 				}
@@ -367,7 +367,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 			err := p.audit(object, &response)
 			if err != nil {
-				logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+				logger.Error(err, "failed to create reports for mpol", "policy", ur.Spec.GetPolicyKey())
 			}
 		}
 	}

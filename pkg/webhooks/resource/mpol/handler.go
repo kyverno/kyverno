@@ -109,7 +109,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 				mpols = h.filterBackgroundPolicies(logger, mpols)
 			}
 			for _, p := range mpols {
-				logger.V(4).Info("creating a UR for mpol", "name", p)
+				logger.V(4).Info("creating a UR for mpol", "policy", p)
 				if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
 					Type:   kyvernov2.CELMutate,
 					Policy: p,
