@@ -715,6 +715,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.profiling.port | int | `6060` | Profiling endpoint port |
 | backgroundController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
 | backgroundController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| backgroundController.sanityChecks | bool | `true` | Enable sanity check for reports CRDs |
 
 ### Cleanup controller
 

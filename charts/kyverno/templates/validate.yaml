@@ -12,10 +12,10 @@
 {{- end }}
 
 {{- if and (eq .Values.backgroundController.enabled true) (eq .Values.backgroundController.sanityChecks true) (eq .Values.crds.groups.reports.ephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
-{{- fail "CRD ephemeralreports disabled while reportsController enabled" }}
+{{- fail "CRD ephemeralreports disabled while backgroundController enabled" }}
 {{- end }}
 {{- if and (eq .Values.backgroundController.enabled true) (eq .Values.backgroundController.sanityChecks true) (eq .Values.crds.groups.reports.clusterephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
-{{- fail "CRD clusterephemeralreports disabled while reportsController enabled" }}
+{{- fail "CRD clusterephemeralreports disabled while backgroundController enabled" }}
 {{- end }}
 
 {{- if hasKey .Values "mode" -}}
