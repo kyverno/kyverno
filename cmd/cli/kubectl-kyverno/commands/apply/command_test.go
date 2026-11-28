@@ -2905,3 +2905,82 @@ spec:
 		assert.Contains(t, output, "warn: 0")
 	})
 }
+
+func TestApply_ResourceList_EmptyNamespaceAndLabelSelector(t *testing.T) {
+	dir := t.TempDir()
+	policyFile := filepath.Join(dir, "policy.yaml")
+	resourceFile := filepath.Join(dir, "pod.yaml")
+	contextFile := filepath.Join(dir, "context.yaml")
+
+	policy := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-list-resources
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE]
+        resources: [pods]
+  validations:
+    - expression: >-
+        resource.List("v1", "configmaps", "").items.size() == 3 &&
+        dyn(resource.List("v1", "configmaps", "ns-a", {"app": "web"}).items).map(r, r.metadata.name) == ["web-a"] &&
+        dyn(resource.List("v1", "configmaps", "", {"app": "web"}).items).map(r, r.metadata.namespace + "/" + r.metadata.name) == ["ns-a/web-a", "ns-b/web-b"] &&
+        resource.List("v1", "configmaps", "", {"app": "missing"}).items.size() == 0
+      message: "resource.List must support empty-namespace listing and label selectors"
+`
+	pod := `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: default
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+`
+	ctxManifest := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: context
+spec:
+  resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: web-a
+        namespace: ns-a
+        labels:
+          app: web
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: db-a
+        namespace: ns-a
+        labels:
+          app: db
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: web-b
+        namespace: ns-b
+        labels:
+          app: web
+`
+	require.NoError(t, os.WriteFile(policyFile, []byte(policy), 0o600))
+	require.NoError(t, os.WriteFile(resourceFile, []byte(pod), 0o600))
+	require.NoError(t, os.WriteFile(contextFile, []byte(ctxManifest), 0o600))
+
+	config := &ApplyCommandConfig{
+		PolicyPaths:   []string{policyFile},
+		ResourcePaths: []string{resourceFile},
+		ContextPath:   contextFile,
+	}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 1, rc.Pass)
+	require.Zero(t, rc.Fail)
+	require.Zero(t, rc.Error)
+}
