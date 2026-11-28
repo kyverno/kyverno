@@ -2,10 +2,13 @@ package libs
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -119,9 +122,23 @@ func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace str
 	if resources == nil {
 		return nil, kerrors.NewBadRequest(fmt.Sprintf("%s resource not found", gvr.GroupResource()))
 	}
+	selector := k8slabels.SelectorFromSet(labels)
 	var out unstructured.UnstructuredList
-	for _, obj := range resources[namespace] {
-		out.Items = append(out.Items, *obj)
+	appendBucket := func(bucket map[string]*unstructured.Unstructured) {
+		// Sort keys so offline CEL indexing (e.g. items[0]) is deterministic.
+		for _, name := range slices.Sorted(maps.Keys(bucket)) {
+			obj := bucket[name]
+			if selector.Matches(k8slabels.Set(obj.GetLabels())) {
+				out.Items = append(out.Items, *obj)
+			}
+		}
+	}
+	if namespace != "" {
+		appendBucket(resources[namespace])
+	} else {
+		for _, ns := range slices.Sorted(maps.Keys(resources)) {
+			appendBucket(resources[ns])
+		}
 	}
 	return &out, nil
 }
