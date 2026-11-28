@@ -1972,6 +1972,9 @@ backgroundController:
     # Only used if `type` is `NodePort`.
     nodePort:
 
+  # -- Enable sanity check for reports CRDs
+  sanityChecks: true
+
 # Cleanup controller configuration
 cleanupController:
 
