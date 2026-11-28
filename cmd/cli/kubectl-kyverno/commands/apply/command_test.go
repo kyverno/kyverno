@@ -2908,29 +2908,9 @@ spec:
 
 func TestApply_ResourceList_EmptyNamespaceAndLabelSelector(t *testing.T) {
 	dir := t.TempDir()
-	policyFile := filepath.Join(dir, "policy.yaml")
 	resourceFile := filepath.Join(dir, "pod.yaml")
 	contextFile := filepath.Join(dir, "context.yaml")
 
-	policy := `apiVersion: policies.kyverno.io/v1
-kind: ValidatingPolicy
-metadata:
-  name: check-list-resources
-spec:
-  matchConstraints:
-    resourceRules:
-      - apiGroups: [""]
-        apiVersions: ["v1"]
-        operations: [CREATE]
-        resources: [pods]
-  validations:
-    - expression: >-
-        resource.List("v1", "configmaps", "").items.size() == 3 &&
-        dyn(resource.List("v1", "configmaps", "ns-a", {"app": "web"}).items).map(r, r.metadata.name) == ["web-a"] &&
-        dyn(resource.List("v1", "configmaps", "", {"app": "web"}).items).map(r, r.metadata.namespace + "/" + r.metadata.name) == ["ns-a/web-a", "ns-b/web-b"] &&
-        resource.List("v1", "configmaps", "", {"app": "missing"}).items.size() == 0
-      message: "resource.List must support empty-namespace listing and label selectors"
-`
 	pod := `apiVersion: v1
 kind: Pod
 metadata:
@@ -2969,18 +2949,62 @@ spec:
         labels:
           app: web
 `
-	require.NoError(t, os.WriteFile(policyFile, []byte(policy), 0o600))
 	require.NoError(t, os.WriteFile(resourceFile, []byte(pod), 0o600))
 	require.NoError(t, os.WriteFile(contextFile, []byte(ctxManifest), 0o600))
 
-	config := &ApplyCommandConfig{
-		PolicyPaths:   []string{policyFile},
-		ResourcePaths: []string{resourceFile},
-		ContextPath:   contextFile,
+	tests := []struct {
+		name       string
+		expression string
+		wantPass   int
+		wantFail   int
+		wantError  int
+	}{
+		{
+			name: "passing all-namespaces and label-filtered queries",
+			expression: `resource.List("v1", "configmaps", "").items.size() == 3 &&
+        dyn(resource.List("v1", "configmaps", "ns-a", {"app": "web"}).items).map(r, r.metadata.name) == ["web-a"] &&
+        dyn(resource.List("v1", "configmaps", "", {"app": "web"}).items).map(r, r.metadata.namespace + "/" + r.metadata.name) == ["ns-a/web-a", "ns-b/web-b"] &&
+        resource.List("v1", "configmaps", "", {"app": "missing"}).items.size() == 0`,
+			wantPass: 1,
+		},
+		{
+			name:       "failing when expected count does not match",
+			expression: `resource.List("v1", "configmaps", "").items.size() == 4`,
+			wantFail:   1,
+		},
 	}
-	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
-	require.NoError(t, err)
-	require.Equal(t, 1, rc.Pass)
-	require.Zero(t, rc.Fail)
-	require.Zero(t, rc.Error)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			policyFile := filepath.Join(t.TempDir(), "policy.yaml")
+			policy := fmt.Sprintf(`apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-list-resources
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE]
+        resources: [pods]
+  validations:
+    - expression: >-
+        %s
+      message: "resource.List must support empty-namespace listing and label selectors"
+`, tc.expression)
+			require.NoError(t, os.WriteFile(policyFile, []byte(policy), 0o600))
+
+			config := &ApplyCommandConfig{
+				PolicyPaths:   []string{policyFile},
+				ResourcePaths: []string{resourceFile},
+				ContextPath:   contextFile,
+			}
+			rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.NoError(t, err)
+			require.Equal(t, tc.wantPass, rc.Pass)
+			require.Equal(t, tc.wantFail, rc.Fail)
+			require.Equal(t, tc.wantError, rc.Error)
+		})
+	}
 }
