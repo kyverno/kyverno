@@ -33,12 +33,20 @@ func Render(w io.Writer, d *Decision) {
 	}
 	fmt.Fprintln(w)
 
+	if r.all {
+		fmt.Fprintf(w, "NOTE: values are redacted because this resource is a Secret.\n\n")
+	}
+
 	scope := "skipped"
 	if d.Scope.Applied {
 		scope = "applied"
 	}
 	if d.Scope.Reason != "" {
-		row(w, "SCOPE", scope, d.Scope.Reason)
+		reason := d.Scope.Reason
+		if (r.all || r.any) && isScopeError(reason) {
+			reason = redacted
+		}
+		row(w, "SCOPE", scope, reason)
 	}
 
 	for _, m := range d.Match {
@@ -52,11 +60,13 @@ func Render(w io.Writer, d *Decision) {
 			row(w, "IMAGES", "", "no images found on the resource")
 		}
 		for _, img := range d.Images.Found {
+			isCustom := img.Custom || (img.Category != "containers" && img.Category != "initContainers" && img.Category != "ephemeralContainers")
+			imgVal := clip(r.value(Inputs{Secret: r.all || isCustom}, img.Image, false))
 			if img.Checked {
-				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				row(w, "IMAGES", "checked", img.Category+": "+imgVal)
 				continue
 			}
-			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+			row(w, "IMAGES", "skipped", img.Category+": "+imgVal+"  (not matched by matchImageReferences)")
 		}
 	}
 	// with a single validation the list would only repeat the verdict line
@@ -74,7 +84,7 @@ func Render(w io.Writer, d *Decision) {
 		if m.Error == "" {
 			row(w, "MUTATIONS", "", named(r, NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
 			if m.NotApplied != "" {
-				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", m.NotApplied)
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", r.errorText(m.Inputs, m.NotApplied))
 			}
 			continue
 		}
@@ -82,8 +92,13 @@ func Render(w io.Writer, d *Decision) {
 		printNodes(w, r, m.ExpressionTrace)
 	}
 	for _, g := range d.Generations {
+		isTemplate := g.Source == "" && len(g.Nodes) == 0
 		if g.Error != "" {
-			row(w, "GENERATE", VerdictError, g.Name+": "+r.errorText(g.Inputs, g.Error))
+			inputs := g.Inputs
+			if isTemplate {
+				inputs.Secret = true
+			}
+			row(w, "GENERATE", VerdictError, g.Name+": "+r.errorText(inputs, g.Error))
 			printNodes(w, r, g.ExpressionTrace)
 			continue
 		}
@@ -95,8 +110,12 @@ func Render(w io.Writer, d *Decision) {
 		if len(g.Generated) == 0 {
 			fmt.Fprintf(w, "%-10s %-8s generated nothing\n", "", "")
 		}
-		for _, r := range g.Generated {
-			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", r)
+		for _, res := range g.Generated {
+			inputs := g.Inputs
+			if (isTemplate && (r.all || r.any || inputs.Secret)) || strings.HasPrefix(res, "Secret ") {
+				inputs.Secret = true
+			}
+			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", clip(r.value(inputs, res, false)))
 		}
 	}
 
@@ -148,7 +167,11 @@ func printNodes(w io.Writer, r redaction, et ExpressionTrace) {
 				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(r.errorText(n.Inputs, n.Error)))
 				continue
 			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(r.value(n.Inputs, n.Value)))
+			// Node values are always redacted in secret traces, even booleans: an intermediate
+			// boolean result such as "object.data.token.startsWith('YQ') -> true" reveals structural
+			// information about the secret and can be used for character-by-character probing.
+			isBool := !r.reads(n.Inputs) && n.ValueIsBoolean
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(r.value(n.Inputs, n.Value, isBool)))
 		}
 	}
 	if et.LoopValuesOmitted {
@@ -172,7 +195,8 @@ func named(r redaction, n NamedExpressionTrace) string {
 }
 
 func expressionLine(r redaction, et ExpressionTrace) string {
-	return fmt.Sprintf("%s  ->  %s", et.Source, clip(r.value(et.Inputs, et.Result)))
+	isBool := !r.reads(et.Inputs) && et.ResultIsBoolean
+	return fmt.Sprintf("%s  ->  %s", et.Source, clip(r.value(et.Inputs, et.Result, isBool)))
 }
 
 func resourceLabel(d *Decision) string {

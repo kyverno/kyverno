@@ -46,6 +46,7 @@ type Policy struct {
 type Generation struct {
 	expression cel.Program
 	template   *template.Template
+	inputs     trace.Inputs
 	// name identifies the entry in a trace, e.g. "generate[0] (expression)"; traced and ast are
 	// the expression's explain-only tracking twin and AST, set only when the policy was compiled
 	// with tracing on (see compiler.TracedProgram)
@@ -284,10 +285,10 @@ func (p *Policy) Evaluate(
 		}
 		if generation.template != nil {
 			if err := p.applyTemplate(ctx, generation.template, dataNew, data.Context); err != nil {
-				record(trace.ExpressionTrace{}, err)
+				record(trace.ExpressionTrace{Inputs: generation.inputs}, err)
 				return failed(err)
 			}
-			record(trace.ExpressionTrace{}, nil)
+			record(trace.ExpressionTrace{Inputs: generation.inputs}, nil)
 			continue
 		}
 		out, _, err := generation.expression.ContextEval(ctx, dataNew)

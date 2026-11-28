@@ -235,7 +235,7 @@ func TestRedaction_SecretValuesAreHidden(t *testing.T) {
 	assert.Equal(t, redacted, entry.Variables[0].Result, "decoded reads password, which reads a Secret")
 	assert.Equal(t, redacted, entry.Variables[1].Result)
 	assert.Equal(t, "strict", entry.Variables[2].Result)
-	assert.Equal(t, "false", entry.Verdict.Result, "true and false are kept")
+	assert.Equal(t, redacted, entry.Verdict.Result, "boolean results reading a Secret are redacted to prevent a boolean oracle")
 	evaluated := map[string]string{}
 	for _, n := range entry.Verdict.Evaluated {
 		evaluated[n.Expression] = n.Value
@@ -289,8 +289,9 @@ func TestRender_SecretResourceValuesAreHidden(t *testing.T) {
 		Verdict: VerdictTrace{
 			Status: VerdictFail,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.password.size() > 32",
-				Result: "false",
+				Source:          "variables.password.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
 					{Expression: "variables.password.size()", Value: "18"},
 					{Expression: "timestamp(variables.password)", Error: `invalid RFC 3339 timestamp "` + password + `"`},
@@ -302,7 +303,7 @@ func TestRender_SecretResourceValuesAreHidden(t *testing.T) {
 	Render(&rendered, d)
 	assert.NotContains(t, rendered.String(), password)
 	assert.NotContains(t, rendered.String(), "18")
-	assert.Contains(t, rendered.String(), "variables.password.size() > 32  ->  false")
+	assert.Contains(t, rendered.String(), "variables.password.size() > 32  ->  "+redacted)
 }
 
 // TestRedaction_UnnamedVariableReadsAreHidden: an expression that reads variables without naming

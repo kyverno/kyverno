@@ -16,6 +16,10 @@ type NodeTrace struct {
 	Expression string `json:"expression"`
 	Value      string `json:"value,omitempty"`
 	Error      string `json:"error,omitempty"`
+	// ValueIsBoolean is true when the evaluated value is a genuine CEL boolean (bool).
+	// This ensures that secret fields with decoded string value "true" or "false" are
+	// not exempt from redaction.
+	ValueIsBoolean bool `json:"-"`
 	// Inputs is what this sub-expression reads, so its value can be hidden when it may be Secret
 	// data.
 	Inputs Inputs `json:"-"`
@@ -28,6 +32,8 @@ type ExpressionTrace struct {
 	Source string      `json:"expression,omitempty"`
 	Nodes  []NodeTrace `json:"evaluated,omitempty"`
 	Result string      `json:"result,omitempty"`
+	// ResultIsBoolean is true when the evaluated result is a genuine CEL boolean (bool).
+	ResultIsBoolean bool `json:"-"`
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool `json:"loopValuesOmitted,omitempty"`
@@ -41,8 +47,9 @@ type ExpressionTrace struct {
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
-		Source: source,
-		Result: stringify(result),
+		Source:          source,
+		Result:          stringify(result),
+		ResultIsBoolean: result != nil && result.Type() == types.BoolType,
 	}
 	if ast == nil {
 		return et
@@ -135,6 +142,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			nt.Error = stringify(val)
 		} else {
 			nt.Value = stringify(val)
+			nt.ValueIsBoolean = val != nil && val.Type() == types.BoolType
 		}
 		et.Nodes = append(et.Nodes, nt)
 	}))
@@ -238,11 +246,14 @@ type ImagesTrace struct {
 
 // ImageTrace is one image found on the resource. Category is the image extractor that found it
 // (e.g. containers); Checked is whether the policy's matchImageReferences kept it, which is what
-// decides whether the policy's validations see it at all.
+// decides whether the policy's validations see it at all; Custom is true when the image was extracted
+// by a user-defined extractor (including any that overrides a built-in category name) or in an
+// evaluation mode with no built-in extractors.
 type ImageTrace struct {
 	Category string `json:"category"`
 	Image    string `json:"image"`
 	Checked  bool   `json:"checked"`
+	Custom   bool   `json:"-"`
 }
 
 // ValidationTrace is one validation's own outcome. Index is its position in the policy's
@@ -257,6 +268,9 @@ type VerdictTrace struct {
 	Status string `json:"status,omitempty"`
 	ExpressionTrace
 	Message string `json:"message,omitempty"`
+	// DynamicMessage is set when Message was evaluated from a dynamic message expression
+	// or generated from runtime values rather than a static policy message string.
+	DynamicMessage bool `json:"-"`
 }
 
 // Decision is the trace of how one policy reached its result for one resource. In JSON (see

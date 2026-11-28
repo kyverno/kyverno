@@ -50,9 +50,58 @@ func NewDecisionList(items []*Decision, summary *Summary, err error) DecisionLis
 	}
 	list := DecisionList{APIVersion: APIVersion, Kind: KindDecisionList, Items: items, Summary: summary}
 	if err != nil {
-		list.Error = err.Error()
+		hasSecret := false
+		for _, d := range items {
+			if d != nil {
+				r := newRedaction(d)
+				if r.all || r.any {
+					hasSecret = true
+					break
+				}
+			}
+		}
+		if hasSecret {
+			list.Error = redacted
+		} else {
+			list.Error = err.Error()
+		}
 	}
 	return list
+}
+
+type decisionListJSON DecisionList
+
+func (dl DecisionList) MarshalJSON() ([]byte, error) {
+	out := decisionListJSON(dl)
+	hasSecret := false
+	for _, d := range dl.Items {
+		if d != nil {
+			r := newRedaction(d)
+			if r.all || r.any {
+				hasSecret = true
+				break
+			}
+		}
+	}
+	if hasSecret && out.Error != "" {
+		out.Error = redacted
+	}
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(out); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+}
+
+func (dl *DecisionList) UnmarshalJSON(data []byte) error {
+	in := decisionListJSON{}
+	if err := json.Unmarshal(data, &in); err != nil {
+		return err
+	}
+	*dl = DecisionList(in)
+	return nil
 }
 
 // PolicyRef names the policy a decision is about.

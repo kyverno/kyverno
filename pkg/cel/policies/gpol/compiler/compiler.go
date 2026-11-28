@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
@@ -205,7 +206,21 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				generations = append(generations, Generation{template: tpl, name: fmt.Sprintf("generate[%d] (template)", i)})
+				var tplInputs trace.Inputs
+				for _, expr := range template.ExtractExpressions(generation.Template.Value) {
+					ast, _ := env.Compile(expr)
+					if ast == nil {
+						ast, _ = env.Parse(expr)
+					}
+					if ast != nil {
+						tplInputs.Merge(trace.InputsOf(ast))
+					}
+				}
+				generations = append(generations, Generation{
+					template: tpl,
+					inputs:   tplInputs,
+					name:     fmt.Sprintf("generate[%d] (template)", i),
+				})
 			case generation.Expression != "":
 				traced, errs := compiler.CompileGenerationWithTrace(entryPath, env, generation, c.trace)
 				if errs != nil {

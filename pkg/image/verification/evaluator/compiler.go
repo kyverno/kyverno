@@ -198,6 +198,12 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, field.ErrorList{field.InternalError(path, err)}
 	}
 
+	customExtractors := make(map[string]struct{}, len(spec.ImageExtractors))
+	for _, ext := range spec.ImageExtractors {
+		customExtractors[ext.Name] = struct{}{}
+	}
+	isJSON := spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+
 	return &compiledPolicy{
 		namespace:             ivpolicy.GetNamespace(),
 		failurePolicy:         ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
@@ -207,6 +213,8 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		validations:           validations,
 		auditAnnotations:      auditAnnotations,
 		imageExtractors:       imageExtractors,
+		customExtractors:      customExtractors,
+		isJSONMode:            isJSON,
 		attestors:             compiledAttestors,
 		attestationList:       getAttestations(spec.Attestations),
 		nameOpts:              nameOpts,

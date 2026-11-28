@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 )
@@ -101,6 +102,22 @@ func boundInputs(e celast.Expr, references map[int64]*celast.ReferenceInfo) map[
 		}
 	}
 	return bound
+}
+
+// InputsOf returns the Inputs read by the given CEL AST.
+func InputsOf(ast *cel.Ast) Inputs {
+	if ast == nil {
+		return Inputs{}
+	}
+	native := ast.NativeRep()
+	references := native.ReferenceMap()
+	bound := boundInputs(native.Expr(), references)
+	return inputsOf(native.Expr(), references, bound)
+}
+
+// Merge adds what other reads to in, and reports whether that changed in.
+func (in *Inputs) Merge(other Inputs) bool {
+	return in.merge(other)
 }
 
 // merge adds what other reads to in, and reports whether that changed in.
@@ -250,7 +267,26 @@ func newRedaction(d *Decision) redaction {
 			}
 		}
 	}
-	r.any = r.all || len(r.variables) > 0 || slices.ContainsFunc(expressions(d), func(et ExpressionTrace) bool {
+	hasCustomImages := false
+	if d.Images != nil {
+		for _, img := range d.Images.Found {
+			if img.Custom || (img.Category != "containers" && img.Category != "initContainers" && img.Category != "ephemeralContainers") {
+				hasCustomImages = true
+				break
+			}
+		}
+	}
+	hasTemplateError := false
+	hasSecretGen := false
+	for _, g := range d.Generations {
+		if g.Source == "" && len(g.Nodes) == 0 && g.Error != "" {
+			hasTemplateError = true
+		}
+		if r.reads(g.Inputs) {
+			hasSecretGen = true
+		}
+	}
+	r.any = r.all || len(r.variables) > 0 || hasCustomImages || hasTemplateError || hasSecretGen || slices.ContainsFunc(expressions(d), func(et ExpressionTrace) bool {
 		return r.reads(et.Inputs)
 	})
 	return r
@@ -269,10 +305,12 @@ func (r redaction) reads(in Inputs) bool {
 	return false
 }
 
-// value returns v, or redacted when it may be Secret data. True and false say nothing about the
-// data and are kept, so the trace still shows which checks held.
-func (r redaction) value(in Inputs, v string) string {
-	if v != "" && v != "true" && v != "false" && r.reads(in) {
+// value returns v, or redacted when it may be Secret data. Boolean results that read
+// Secret data are also redacted to prevent using the trace as a boolean oracle (e.g.
+// probing a secret character-by-character with startsWith or equality checks). Genuine boolean results
+// that do not read Secret data are kept.
+func (r redaction) value(in Inputs, v string, isBoolean bool) string {
+	if v != "" && r.reads(in) {
 		return redacted
 	}
 	return v
@@ -287,12 +325,11 @@ func (r redaction) errorText(in Inputs, err string) string {
 	return err
 }
 
-// message returns the verdict's message. The message of an ERROR verdict is the error that ended
-// the evaluation, which can quote a value as errorText says, and may come from any expression of
-// the decision, so it is hidden when anything in the decision may read a Secret. Any other
-// message is the policy's own, which is returned to the requester anyway, and is kept.
+// message returns the verdict's message. When the resource is a Secret, or when the verdict
+// is an error and the decision reads a Secret, or when the message was dynamically evaluated
+// from a message expression or verification failure and its provenance is unavailable, the message is hidden.
 func (r redaction) message(v VerdictTrace) string {
-	if v.Status == VerdictError && v.Message != "" && r.any {
+	if v.Message != "" && (r.all || v.DynamicMessage || (v.Status == VerdictError && r.any)) {
 		return redacted
 	}
 	return v.Message
@@ -320,10 +357,19 @@ func expressions(d *Decision) []ExpressionTrace {
 	return all
 }
 
+// isScopeError reports whether a Scope.Reason string represents an error condition (such as a matchConstraints evaluation failure).
+func isScopeError(reason string) bool {
+	lower := strings.ToLower(reason)
+	return strings.Contains(lower, "error") || strings.Contains(lower, "fail")
+}
+
 // decision returns a copy of d with every value and error that may be Secret data replaced, as
 // Render and LogValues show them. d itself is not changed.
 func (r redaction) decision(d *Decision) *Decision {
 	shown := *d
+	if (r.all || r.any) && isScopeError(d.Scope.Reason) {
+		shown.Scope.Reason = redacted
+	}
 	shown.Match = r.named(d.Match)
 	shown.Variables = r.named(d.Variables)
 	if d.Validations != nil {
@@ -340,16 +386,49 @@ func (r redaction) decision(d *Decision) *Decision {
 		for i, m := range d.Mutations {
 			m.ExpressionTrace = r.expression(m.ExpressionTrace)
 			m.Error = r.errorText(m.Inputs, m.Error)
+			m.NotApplied = r.errorText(m.Inputs, m.NotApplied)
 			shown.Mutations[i] = m
 		}
 	}
 	if d.Generations != nil {
 		shown.Generations = make([]GenerationTrace, len(d.Generations))
 		for i, g := range d.Generations {
+			inputs := g.Inputs
+			isTemplate := g.Source == "" && len(g.Nodes) == 0
+			if isTemplate && (r.all || r.any || inputs.Secret) {
+				inputs.Secret = true
+			}
 			g.ExpressionTrace = r.expression(g.ExpressionTrace)
-			g.Error = r.errorText(g.Inputs, g.Error)
+			errInputs := inputs
+			if isTemplate {
+				errInputs.Secret = true
+			}
+			g.Error = r.errorText(errInputs, g.Error)
+			if g.Generated != nil {
+				generated := make([]string, len(g.Generated))
+				for j, res := range g.Generated {
+					resInputs := inputs
+					if strings.HasPrefix(res, "Secret ") {
+						resInputs.Secret = true
+					}
+					generated[j] = r.value(resInputs, res, false)
+				}
+				g.Generated = generated
+			}
 			shown.Generations[i] = g
 		}
+	}
+	if d.Images != nil {
+		var images []ImageTrace
+		if d.Images.Found != nil {
+			images = make([]ImageTrace, len(d.Images.Found))
+			for i, img := range d.Images.Found {
+				isCustom := img.Custom || (img.Category != "containers" && img.Category != "initContainers" && img.Category != "ephemeralContainers")
+				img.Image = r.value(Inputs{Secret: r.all || isCustom}, img.Image, false)
+				images[i] = img
+			}
+		}
+		shown.Images = &ImagesTrace{Found: images}
 	}
 	return &shown
 }
@@ -367,11 +446,12 @@ func (r redaction) named(traces []NamedExpressionTrace) []NamedExpressionTrace {
 }
 
 func (r redaction) expression(et ExpressionTrace) ExpressionTrace {
-	et.Result = r.value(et.Inputs, et.Result)
+	isBool := !r.reads(et.Inputs) && et.ResultIsBoolean
+	et.Result = r.value(et.Inputs, et.Result, isBool)
 	if et.Nodes != nil {
 		nodes := make([]NodeTrace, len(et.Nodes))
 		for i, n := range et.Nodes {
-			n.Value = r.value(n.Inputs, n.Value)
+			n.Value = r.value(n.Inputs, n.Value, !r.reads(n.Inputs) && n.ValueIsBoolean)
 			n.Error = r.errorText(n.Inputs, n.Error)
 			nodes[i] = n
 		}
