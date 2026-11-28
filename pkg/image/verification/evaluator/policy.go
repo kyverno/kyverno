@@ -88,6 +88,8 @@ type compiledPolicy struct {
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
 	imageExtractors      engine.ImageExtractorProfiles
+	customExtractors     map[string]struct{}
+	isJSONMode           bool
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
@@ -166,7 +168,7 @@ func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imag
 		if !c.trace {
 			return nil, err
 		}
-		verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+		verdict.Status, verdict.Message, verdict.DynamicMessage = trace.VerdictError, err.Error(), true
 		return &EvaluationResult{Trace: decision()}, err
 	}
 	var recordMatch func(int, ref.Val, error)
@@ -289,6 +291,8 @@ func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imag
 	filteredImages := make(map[string][]string, len(images))
 	imgList := []string{}
 	for category, imgs := range images {
+		_, isCustom := c.customExtractors[category]
+		isCustom = isCustom || c.isJSONMode || (category != "containers" && category != "initContainers" && category != "ephemeralContainers")
 		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
 			apply, err := matching.MatchImage(ctx, img, c.matchImageReferences...)
@@ -299,7 +303,7 @@ func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imag
 				if imagesTrace == nil {
 					imagesTrace = &trace.ImagesTrace{}
 				}
-				imagesTrace.Found = append(imagesTrace.Found, trace.ImageTrace{Category: category, Image: img, Checked: apply})
+				imagesTrace.Found = append(imagesTrace.Found, trace.ImageTrace{Category: category, Image: img, Checked: apply, Custom: isCustom})
 			}
 			if apply {
 				filteredImages[category] = append(filteredImages[category], img)
@@ -327,6 +331,7 @@ func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imag
 	}
 	if result != nil {
 		verdict.Status, verdict.Message = trace.VerdictFail, result.Message
+		verdict.DynamicMessage = true
 		result.Trace = decision()
 		return result, nil
 	}
@@ -372,6 +377,9 @@ func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imag
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := v.Message
+			if v.MessageExpression != nil || diagnostics != "" {
+				verdict.DynamicMessage = true
+			}
 			if v.MessageExpression != nil {
 				if out, _, err := v.MessageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)

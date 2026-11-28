@@ -230,6 +230,12 @@ func (r *RuleResponse) SkipReason() SkipReason {
 	return r.skipReason
 }
 
+// WithMessage returns a copy of RuleResponse with the given message.
+func (r RuleResponse) WithMessage(msg string) RuleResponse {
+	r.message = msg
+	return r
+}
+
 // WithMessageExpressionError sets the messageExpressionError on the RuleResponse.
 func (r RuleResponse) WithMessageExpressionError(err error) *RuleResponse {
 	if err != nil {

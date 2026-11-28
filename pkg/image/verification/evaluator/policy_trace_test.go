@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -179,9 +180,9 @@ func TestEvaluate_TracingOn_ImagesShowWhatWasChecked(t *testing.T) {
 	require.NotNil(t, traced.Trace)
 	require.NotNil(t, traced.Trace.Images)
 	assert.Equal(t, []trace.ImageTrace{
-		{Category: "init", Image: "ghcr.io/x/init:2.0", Checked: true},
-		{Category: "workloads", Image: "ghcr.io/x/app:1.0", Checked: true},
-		{Category: "workloads", Image: "docker.io/library/busybox:1", Checked: false},
+		{Category: "init", Image: "ghcr.io/x/init:2.0", Checked: true, Custom: true},
+		{Category: "workloads", Image: "ghcr.io/x/app:1.0", Checked: true, Custom: true},
+		{Category: "workloads", Image: "docker.io/library/busybox:1", Checked: false, Custom: true},
 	}, traced.Trace.Images.Found, "categories in a stable order, each extractor's own order kept")
 }
 
@@ -381,6 +382,43 @@ func TestEvaluateWithTrace_JSONPayload(t *testing.T) {
 	}
 }
 
+func TestEvaluateWithTrace_SecretJSONPayload(t *testing.T) {
+	secretPayload := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]any{
+			"name":      "db-credentials",
+			"namespace": "default",
+		},
+		"data": map[string]any{
+			"password": "hunter2-do-not-leak",
+		},
+		"app": "ghcr.io/x/app:1.0",
+	}
+	policy := jsonTracePolicy("secret-check", false, admissionregistrationv1.Validation{
+		Expression: "images.app.all(e, e.size() > 5)",
+	})
+	policy.Spec.ImageExtractors = []policiesv1beta1.ImageExtractor{
+		{Name: "app", Expression: "[object.data.password]"},
+	}
+	ivpols := []*CompiledImageValidatingPolicy{{Policy: policy}}
+	traced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, secretPayload, nil, nil, nil, true)
+	require.NoError(t, err)
+	tr := traced[policy.Name]
+	require.NotNil(t, tr)
+	require.NotNil(t, tr.Trace)
+	assert.Equal(t, "Secret", tr.Trace.ResourceKind)
+	assert.Equal(t, "db-credentials", tr.Trace.ResourceName)
+	assert.Equal(t, "default", tr.Trace.ResourceNamespace)
+
+	var sb strings.Builder
+	trace.Render(&sb, tr.Trace)
+	out := sb.String()
+	assert.NotContains(t, out, "hunter2-do-not-leak")
+	assert.Contains(t, out, "app: (redacted)")
+	assert.Contains(t, out, "NOTE: values are redacted because this resource is a Secret.")
+}
+
 func TestEvaluateWithTrace_MatchConditionSkip(t *testing.T) {
 	policy := jsonTracePolicy("skipped", false, admissionregistrationv1.Validation{Expression: "false"})
 	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "is-prod", Expression: "object.?env.orValue('') == 'prod'"}}
@@ -419,4 +457,39 @@ func TestEvaluateWithTrace_ErrorKeepsThePartialTrace(t *testing.T) {
 	require.NotNil(t, got.Trace)
 	assert.Equal(t, trace.VerdictError, got.Trace.Verdict.Status)
 	assert.Equal(t, policy.Name, got.Trace.PolicyName)
+}
+
+func TestEvaluateWithTrace_CustomExtractorRequiredFailureIsRedacted(t *testing.T) {
+	const secretToken = "ghcr.io/internal/secret-token-do-not-leak:v1"
+	payload := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]any{
+			"name":      "app-pod",
+			"namespace": "default",
+		},
+		"spec": map[string]any{
+			"customToken": secretToken,
+		},
+	}
+	policy := jsonTracePolicy("required-custom-fail", true, admissionregistrationv1.Validation{Expression: "true"})
+	// Custom extractor overrides the "containers" category name with a custom expression
+	policy.Spec.ImageExtractors = []policiesv1beta1.ImageExtractor{
+		{Name: "containers", Expression: "[object.spec.customToken]"},
+	}
+	ivpols := []*CompiledImageValidatingPolicy{{Policy: policy}}
+	traced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, true)
+	require.NoError(t, err)
+	tr := traced[policy.Name]
+	require.NotNil(t, tr)
+	require.NotNil(t, tr.Trace)
+	assert.True(t, tr.Trace.Images.Found[0].Custom, "overridden extractor must be marked Custom")
+	assert.True(t, tr.Trace.Verdict.DynamicMessage, "required failure must be marked DynamicMessage")
+
+	var sb strings.Builder
+	trace.Render(&sb, tr.Trace)
+	out := sb.String()
+	assert.NotContains(t, out, "secret-token-do-not-leak")
+	assert.Contains(t, out, "containers: (redacted)")
+	assert.Contains(t, out, "VERDICT    FAIL     (redacted)")
 }

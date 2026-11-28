@@ -301,7 +301,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			result.Trace.Scope = scope
 			response.Trace = result.Trace
 		case err != nil:
-			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error(), DynamicMessage: true}}
 		case result != nil && result.Trace != nil:
 			result.Trace.Scope = scope
 			response.Trace = result.Trace

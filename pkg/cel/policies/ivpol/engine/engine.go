@@ -844,8 +844,9 @@ func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.Im
 			// the validations passed, then required turned the result into a failure; no single
 			// expression decided that, so the verdict carries only the message
 			response.Trace.Verdict = trace.VerdictTrace{
-				Status:  trace.VerdictFail,
-				Message: "every validation passed, but validationConfigurations.required failed: " + err.Error(),
+				Status:         trace.VerdictFail,
+				Message:        "every validation passed, but validationConfigurations.required failed: " + err.Error(),
+				DynamicMessage: true,
 			}
 		}
 		responses[check.key] = response

@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -132,6 +133,8 @@ type ApplyCommandConfig struct {
 	deprecationWarnings       []string
 	// decisions are the decision traces kept for printDecisions with --explain --output-format json
 	decisions []*trace.Decision
+	// decisionMap maps policy and resource keys to their trace decision for redaction checking
+	decisionMap map[string]*trace.Decision
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -179,6 +182,7 @@ func Command() *cobra.Command {
 			}
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
+			responses = applyCommandConfig.sanitizeUserFacingResponses(responses)
 			if applyCommandConfig.PolicyReport {
 				printReports(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat)
 			} else if applyCommandConfig.GenerateExceptions {
@@ -292,6 +296,8 @@ func Command() *cobra.Command {
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
+	c.decisions = nil
+	c.decisionMap = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -717,7 +723,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
-			TraceSink:                         c.traceSink(),
+			TraceSink:                         c.traceSink(out),
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -733,9 +739,16 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			errOut := err
+			if resource.GetKind() == "Secret" {
+				errOut = errors.New("(redacted)")
+			}
 			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), errOut.Error()))
 				continue
+			}
+			if resource.GetKind() == "Secret" {
+				return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), errOut)
 			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
@@ -767,7 +780,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
-			TraceSink:                         c.traceSink(),
+			TraceSink:                         c.traceSink(out),
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -783,9 +796,16 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			errOut := err
+			if resource.GetKind() == "Secret" {
+				errOut = errors.New("(redacted)")
+			}
 			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), errOut.Error()))
 				continue
+			}
+			if resource.GetKind() == "Secret" {
+				return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), errOut)
 			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
@@ -893,9 +913,16 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		)
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
+			errOut := err
+			if resource.GetKind() == "Secret" {
+				errOut = errors.New("(redacted)")
+			}
 			if c.ContinueOnFail {
-				fmt.Fprintf(out, "failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Fprintf(out, "failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), errOut)
 				continue
+			}
+			if resource.GetKind() == "Secret" {
+				return responses, fmt.Errorf("failed to apply image validating policies on resource %s: %w", resource.GetName(), errOut)
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
 		}
@@ -929,16 +956,38 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	for _, json := range jsonPayloads {
 		result, err := eval.EvaluateWithTrace(context.TODO(), ivpols, json.Object, nil, nil, lister, c.Explain)
+		hasSecret := json.GetKind() == "Secret"
 		// before the error is handled, so a policy that errored still shows how far it got
 		for _, name := range slices.Sorted(maps.Keys(result)) {
 			if rslt := result[name]; rslt != nil {
+				if rslt.Trace != nil {
+					if rslt.Trace.ResourceKind == "" {
+						rslt.Trace.ResourceKind = json.GetKind()
+					}
+					if rslt.Trace.ResourceName == "" {
+						rslt.Trace.ResourceName = json.GetName()
+					}
+					if rslt.Trace.ResourceNamespace == "" {
+						rslt.Trace.ResourceNamespace = json.GetNamespace()
+					}
+					if rslt.Trace.ResourceKind == "Secret" {
+						hasSecret = true
+					}
+				}
 				c.printTrace(out, rslt.Trace)
 			}
 		}
 		if err != nil {
+			errOut := err
+			if hasSecret {
+				errOut = errors.New("(redacted)")
+			}
 			if c.ContinueOnFail {
-				fmt.Fprintf(out, "failed to apply image validating policies on JSON payload: %v\n", err)
+				fmt.Fprintf(out, "failed to apply image validating policies on JSON payload: %v\n", errOut)
 				continue
+			}
+			if hasSecret {
+				return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", errOut)
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
 		}
@@ -979,12 +1028,21 @@ func (c *ApplyCommandConfig) explainJSON() bool {
 }
 
 // traceSink returns what the policy processor hands each decision trace to instead of printing
-// it: printTrace with --explain --output-format json, nothing otherwise.
-func (c *ApplyCommandConfig) traceSink() func(*trace.Decision) {
-	if !c.explainJSON() {
+// it: printTrace with --explain --output-format json, or recorded trace printing with --explain,
+// nil otherwise.
+func (c *ApplyCommandConfig) traceSink(out io.Writer) func(*trace.Decision) {
+	if !c.Explain {
 		return nil
 	}
-	return func(d *trace.Decision) { c.printTrace(nil, d) }
+	if c.explainJSON() {
+		return func(d *trace.Decision) { c.printTrace(nil, d) }
+	}
+	return func(d *trace.Decision) {
+		c.recordDecision(d)
+		fmt.Fprintln(out)
+		trace.Render(out, d)
+		fmt.Fprintln(out)
+	}
 }
 
 // explainAsJSON runs apply with --explain --output-format json. Standard output then carries only
@@ -1000,6 +1058,7 @@ func (c *ApplyCommandConfig) explainAsJSON(cmd *cobra.Command) error {
 	}
 	// the decisions of an earlier run of the same command are not this run's
 	c.decisions = nil
+	c.decisionMap = nil
 	stderr := cmd.ErrOrStderr()
 	rc, _, skipInvalidPolicies, _, err := c.applyCommandHelper(cmd.Context(), stderr)
 	if err != nil {
@@ -1023,12 +1082,76 @@ func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
 	if !c.Explain || d == nil {
 		return
 	}
+	c.recordDecision(d)
 	if c.explainJSON() {
-		c.decisions = append(c.decisions, d)
 		return
 	}
 	trace.Render(out, d)
 	fmt.Fprintln(out)
+}
+
+func (c *ApplyCommandConfig) recordDecision(d *trace.Decision) {
+	if d == nil {
+		return
+	}
+	c.decisions = append(c.decisions, d)
+	if c.decisionMap == nil {
+		c.decisionMap = make(map[string]*trace.Decision)
+	}
+	key := decisionKey(d.PolicyKind, d.PolicyName, d.ResourceKind, d.ResourceNamespace, d.ResourceName)
+	c.decisionMap[key] = d
+}
+
+func decisionKey(policyKind, policyName, resourceKind, resourceNamespace, resourceName string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", policyKind, policyName, resourceKind, resourceNamespace, resourceName)
+}
+
+func (c *ApplyCommandConfig) shouldRedactRuleMessage(resp engineapi.EngineResponse, rule engineapi.RuleResponse) bool {
+	if resp.Resource.GetKind() == "Secret" {
+		return true
+	}
+	if !c.Explain || len(c.decisionMap) == 0 {
+		return false
+	}
+	var policyKind, policyName string
+	if resp.Policy() != nil {
+		policyKind = resp.Policy().GetKind()
+		policyName = resp.Policy().GetName()
+	}
+	key := decisionKey(policyKind, policyName, resp.Resource.GetKind(), resp.Resource.GetNamespace(), resp.Resource.GetName())
+	d := c.decisionMap[key]
+	if d == nil {
+		return false
+	}
+	if trace.ShouldRedactMessage(d) {
+		return true
+	}
+	if rule.Status() == engineapi.RuleStatusError && trace.HasSecret(d) {
+		return true
+	}
+	return false
+}
+
+func (c *ApplyCommandConfig) sanitizeUserFacingResponses(responses []engineapi.EngineResponse) []engineapi.EngineResponse {
+	sanitized := make([]engineapi.EngineResponse, len(responses))
+	for i, resp := range responses {
+		rules := make([]engineapi.RuleResponse, len(resp.PolicyResponse.Rules))
+		hasChange := false
+		for j, rule := range resp.PolicyResponse.Rules {
+			status := rule.Status()
+			if (status == engineapi.RuleStatusFail || status == engineapi.RuleStatusError || status == engineapi.RuleStatusWarn) && c.shouldRedactRuleMessage(resp, rule) {
+				rules[j] = rule.WithMessage("(redacted)")
+				hasChange = true
+			} else {
+				rules[j] = rule
+			}
+		}
+		if hasChange {
+			resp.PolicyResponse.Rules = rules
+		}
+		sanitized[i] = resp
+	}
+	return sanitized
 }
 
 // applyDeletingPolicies evaluates deleting policies against target resources,
@@ -1090,17 +1213,24 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			// Trace is only ever set when the policy was compiled with --explain
 			c.printTrace(out, resp.Trace)
 			if err != nil {
+				errOut := err
+				if resource.GetKind() == "Secret" {
+					errOut = errors.New("(redacted)")
+				}
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
-					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
+					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, errOut.Error(), engineapi.RuleStatusError, nil),
 				}})
 
 				responses = append(responses, response)
 				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 
 				if c.ContinueOnFail {
-					fmt.Fprintf(out, "failed to apply deleting policies on %s: %v\n", payloadType, err)
+					fmt.Fprintf(out, "failed to apply deleting policies on %s: %v\n", payloadType, errOut)
 					continue
+				}
+				if resource.GetKind() == "Secret" {
+					return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, errOut)
 				}
 				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
 			}

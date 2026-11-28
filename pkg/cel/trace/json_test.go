@@ -186,6 +186,38 @@ func TestDecision_JSONHidesSecretErrors(t *testing.T) {
 	}
 }
 
+func TestDecision_JSONHidesScopeAndTemplateErrors(t *testing.T) {
+	const secretVal = "czNjcjN0LXA0c3M="
+	// Scope error on Secret resource
+	dScope := &Decision{
+		PolicyName:   "p",
+		ResourceKind: "Secret",
+		Scope:        ScopeTrace{Reason: "failed to evaluate matchConstraints: " + secretVal},
+	}
+	raw, err := json.Marshal(dScope)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), secretVal)
+	var read Decision
+	require.NoError(t, json.Unmarshal(raw, &read))
+	assert.Equal(t, redacted, read.Scope.Reason)
+
+	// Template generation error on Pod resource
+	dTemplate := &Decision{
+		PolicyName:   "p",
+		ResourceKind: "Pod",
+		Generations: []GenerationTrace{{
+			Name:  "generate[0] (template)",
+			Error: "failed rendering: " + secretVal,
+		}},
+	}
+	raw, err = json.Marshal(dTemplate)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), secretVal)
+	read = Decision{}
+	require.NoError(t, json.Unmarshal(raw, &read))
+	assert.Equal(t, redacted, read.Generations[0].Error)
+}
+
 // TestDecisionList_JSON pins a list's envelope, and that it reads back.
 func TestDecisionList_JSON(t *testing.T) {
 	raw, err := json.Marshal(NewDecisionList(nil, &Summary{}, nil))
@@ -213,6 +245,34 @@ func TestDecisionList_JSON(t *testing.T) {
 	var read DecisionList
 	require.NoError(t, json.Unmarshal(raw, &read))
 	assert.Equal(t, list, read)
+}
+
+func TestDecisionList_JSONHidesSecretErrors(t *testing.T) {
+	const secretErr = `failed to apply policy: invalid timestamp "czNjcjN0LXA0c3M="`
+	secretDec := &Decision{
+		PolicyName:   "p",
+		ResourceKind: "Secret",
+		Verdict:      VerdictTrace{Status: VerdictError},
+	}
+	list := NewDecisionList([]*Decision{secretDec}, &Summary{Error: 1}, errors.New(secretErr))
+	raw, err := json.Marshal(list)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "czNjcjN0LXA0c3M=")
+	var read DecisionList
+	require.NoError(t, json.Unmarshal(raw, &read))
+	assert.Equal(t, redacted, read.Error)
+
+	// A non-secret decision list keeps its error verbatim
+	podDec := &Decision{
+		PolicyName:   "p",
+		ResourceKind: "Pod",
+		Verdict:      VerdictTrace{Status: VerdictError},
+	}
+	nonSecretList := NewDecisionList([]*Decision{podDec}, &Summary{Error: 1}, errors.New("no such key: labels"))
+	raw, err = json.Marshal(nonSecretList)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, &read))
+	assert.Equal(t, "no such key: labels", read.Error)
 }
 
 // TestLogEntry_FieldsAreADecisionsFields: a log entry is a decision with fields left out, so every
