@@ -112,7 +112,7 @@ func Render(w io.Writer, d *Decision) {
 		}
 		for _, res := range g.Generated {
 			inputs := g.Inputs
-			if (isTemplate && (r.all || r.any || inputs.Secret)) || strings.HasPrefix(res, "Secret ") {
+			if r.all || inputs.Secret || (isTemplate && r.any) || strings.HasPrefix(res, "Secret ") {
 				inputs.Secret = true
 			}
 			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", clip(r.value(inputs, res, false)))

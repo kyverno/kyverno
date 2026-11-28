@@ -1098,15 +1098,12 @@ func (c *ApplyCommandConfig) recordDecision(d *trace.Decision) {
 	if c.decisionMap == nil {
 		c.decisionMap = make(map[string]*trace.Decision)
 	}
-	key := decisionKey(d.PolicyName, d.ResourceKind, d.ResourceNamespace, d.ResourceName)
+	key := decisionKey(d.PolicyKind, d.PolicyName, d.ResourceKind, d.ResourceNamespace, d.ResourceName)
 	c.decisionMap[key] = d
-	if d.PolicyName != "" {
-		c.decisionMap[d.PolicyName] = d
-	}
 }
 
-func decisionKey(policyName, resourceKind, resourceNamespace, resourceName string) string {
-	return fmt.Sprintf("%s/%s/%s/%s", policyName, resourceKind, resourceNamespace, resourceName)
+func decisionKey(policyKind, policyName, resourceKind, resourceNamespace, resourceName string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", policyKind, policyName, resourceKind, resourceNamespace, resourceName)
 }
 
 func (c *ApplyCommandConfig) shouldRedactRuleMessage(resp engineapi.EngineResponse, rule engineapi.RuleResponse) bool {
@@ -1116,11 +1113,13 @@ func (c *ApplyCommandConfig) shouldRedactRuleMessage(resp engineapi.EngineRespon
 	if !c.Explain || len(c.decisionMap) == 0 {
 		return false
 	}
-	key := decisionKey(resp.Policy().GetName(), resp.Resource.GetKind(), resp.Resource.GetNamespace(), resp.Resource.GetName())
-	d, ok := c.decisionMap[key]
-	if !ok {
-		d = c.decisionMap[resp.Policy().GetName()]
+	var policyKind, policyName string
+	if resp.Policy() != nil {
+		policyKind = resp.Policy().GetKind()
+		policyName = resp.Policy().GetName()
 	}
+	key := decisionKey(policyKind, policyName, resp.Resource.GetKind(), resp.Resource.GetNamespace(), resp.Resource.GetName())
+	d := c.decisionMap[key]
 	if d == nil {
 		return false
 	}

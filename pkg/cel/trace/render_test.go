@@ -413,6 +413,32 @@ func TestRender_SecretRedactsImagesAndGenerations(t *testing.T) {
 	assert.Contains(t, out, "generated "+redacted)
 }
 
+// TestRender_SecretExpressionGenerationRedactsGeneratedDescriptors verifies that expression-based
+// generations on Secret resources redact generated descriptors even without explicit Inputs.Secret.
+func TestRender_SecretExpressionGenerationRedactsGeneratedDescriptors(t *testing.T) {
+	const password = "expression-secret-password"
+	d := &Decision{
+		ResourceKind: "Secret",
+		Generations: []GenerationTrace{
+			{
+				Name: "generate[0] (expression)",
+				ExpressionTrace: ExpressionTrace{
+					Source: "true",
+				},
+				Generated: []string{"ConfigMap default/" + password},
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password)
+	assert.Contains(t, out, "generated "+redacted)
+}
+
 // TestRender_SecretRedactsRemainingPaths is a table-driven test that verifies every changed
 // Render path for a Secret resource does not leak the sensitive value, that "true" and "false"
 // remain visible (over-redaction guard), and that empty values are handled without panic.

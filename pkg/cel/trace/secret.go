@@ -303,14 +303,13 @@ func HasSecret(d *Decision) bool {
 }
 
 // ShouldRedactMessage reports whether a message associated with the decision should be redacted
-// because it evaluates a Secret resource, dynamically evaluates messages while touching secrets,
-// or errored while touching secrets.
+// because it evaluates a Secret resource, dynamically evaluates messages, or errored while touching secrets.
 func ShouldRedactMessage(d *Decision) bool {
 	if d == nil {
 		return false
 	}
 	r := newRedaction(d)
-	return r.all || ((d.Verdict.DynamicMessage || d.Verdict.Status == VerdictError) && (r.all || r.any))
+	return r.all || d.Verdict.DynamicMessage || (d.Verdict.Status == VerdictError && r.any)
 }
 
 // reads reports whether an expression with these inputs may read a Secret.
@@ -416,7 +415,7 @@ func (r redaction) decision(d *Decision) *Decision {
 		for i, g := range d.Generations {
 			inputs := g.Inputs
 			isTemplate := g.Source == "" && len(g.Nodes) == 0
-			if isTemplate && (r.all || r.any || inputs.Secret) {
+			if r.all || inputs.Secret || (isTemplate && r.any) {
 				inputs.Secret = true
 			}
 			g.ExpressionTrace = r.expression(g.ExpressionTrace)
@@ -429,7 +428,7 @@ func (r redaction) decision(d *Decision) *Decision {
 				generated := make([]string, len(g.Generated))
 				for j, res := range g.Generated {
 					resInputs := inputs
-					if strings.HasPrefix(res, "Secret ") {
+					if r.all || strings.HasPrefix(res, "Secret ") {
 						resInputs.Secret = true
 					}
 					generated[j] = r.value(resInputs, res, false)

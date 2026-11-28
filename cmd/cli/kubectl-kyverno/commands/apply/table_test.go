@@ -177,6 +177,7 @@ func TestSanitizeUserFacingResponses_ExplainDynamicMessage(t *testing.T) {
 
 	// Decision with secret reads and dynamic message
 	cfg.recordDecision(&trace.Decision{
+		PolicyKind:   "ValidatingPolicy",
 		PolicyName:   "check-secret-expr",
 		ResourceKind: "Pod",
 		ResourceName: "my-pod",
@@ -201,4 +202,75 @@ func TestSanitizeUserFacingResponses_ExplainDynamicMessage(t *testing.T) {
 	printTable(&buf, true, false, sanitized...)
 	assert.Contains(t, buf.String(), "(redacted)")
 	assert.NotContains(t, buf.String(), "super-secret-token")
+}
+
+func TestSanitizeUserFacingResponses_PolicyKindDisambiguation(t *testing.T) {
+	vpol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check"},
+	})
+	ivpol := engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check"},
+	})
+
+	podRes := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "my-pod",
+			},
+		},
+	}
+
+	vpolResp := engineapi.EngineResponse{
+		Resource: podRes,
+		PolicyResponse: engineapi.PolicyResponse{
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("vpol-rule", engineapi.Validation, "sensitive dynamic value: secret123", nil),
+			},
+		},
+	}.WithPolicy(vpol)
+
+	ivpolResp := engineapi.EngineResponse{
+		Resource: podRes,
+		PolicyResponse: engineapi.PolicyResponse{
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("ivpol-rule", engineapi.ImageVerify, "static failure: image tag is missing", nil),
+			},
+		},
+	}.WithPolicy(ivpol)
+
+	cfg := &ApplyCommandConfig{
+		Explain: true,
+	}
+
+	// Record secret decision for ValidatingPolicy "check"
+	cfg.recordDecision(&trace.Decision{
+		PolicyKind:   "ValidatingPolicy",
+		PolicyName:   "check",
+		ResourceKind: "Pod",
+		ResourceName: "my-pod",
+		Verdict: trace.VerdictTrace{
+			Status:         trace.VerdictFail,
+			DynamicMessage: true,
+		},
+	})
+
+	// Record non-secret decision for ImageValidatingPolicy "check"
+	cfg.recordDecision(&trace.Decision{
+		PolicyKind:   "ImageValidatingPolicy",
+		PolicyName:   "check",
+		ResourceKind: "Pod",
+		ResourceName: "my-pod",
+		Verdict: trace.VerdictTrace{
+			Status:         trace.VerdictFail,
+			DynamicMessage: false,
+		},
+	})
+
+	sanitized := cfg.sanitizeUserFacingResponses([]engineapi.EngineResponse{vpolResp, ivpolResp})
+	// ValidatingPolicy rule was dynamic secret -> redacted
+	assert.Equal(t, "(redacted)", sanitized[0].PolicyResponse.Rules[0].Message())
+	// ImageValidatingPolicy rule was non-secret static -> preserved
+	assert.Equal(t, "static failure: image tag is missing", sanitized[1].PolicyResponse.Rules[0].Message())
 }
