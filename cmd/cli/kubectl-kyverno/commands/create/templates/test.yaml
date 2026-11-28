@@ -22,18 +22,18 @@ variables: {{ .Values }}
 results:
 {{- range .Results }}
   - policy: {{ .Policy }}
-    {{- if .Rule }}
+{{- if .Rule }}
     rule: {{ .Rule }}
-    {{- end }}
+{{- end }}
     resources:
-      {{- if .Namespace }}
+{{- if .Namespace }}
       - {{ printf "%s/%s" .Namespace .Resource | printf "%q" }}
-      {{- else }}
+{{- else }}
       - {{ printf "%q" .Resource }}
-      {{- end }}
+{{- end }}
     kind: {{ .Kind }}
-    {{- if .PatchedResource }}
+{{- if .PatchedResource }}
     patchedResources: {{ printf "%q" .PatchedResource }}
-    {{- end }}
+{{- end }}
     result: {{ .Result }}
 {{- end }}
