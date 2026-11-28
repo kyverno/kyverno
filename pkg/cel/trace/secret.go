@@ -292,6 +292,27 @@ func newRedaction(d *Decision) redaction {
 	return r
 }
 
+// HasSecret reports whether the decision evaluates a Secret resource, reads a Secret in its expressions/variables,
+// or involves secret-capable custom images/templates.
+func HasSecret(d *Decision) bool {
+	if d == nil {
+		return false
+	}
+	r := newRedaction(d)
+	return r.all || r.any
+}
+
+// ShouldRedactMessage reports whether a message associated with the decision should be redacted
+// because it evaluates a Secret resource, dynamically evaluates messages while touching secrets,
+// or errored while touching secrets.
+func ShouldRedactMessage(d *Decision) bool {
+	if d == nil {
+		return false
+	}
+	r := newRedaction(d)
+	return r.all || ((d.Verdict.DynamicMessage || d.Verdict.Status == VerdictError) && (r.all || r.any))
+}
+
 // reads reports whether an expression with these inputs may read a Secret.
 func (r redaction) reads(in Inputs) bool {
 	if r.all || in.Secret || in.AnyVariable && len(r.variables) > 0 {
